@@ -6,7 +6,7 @@
 - [x] Reglas del proyecto (`CLAUDE.md`).
 - [x] Documentación: `PRODUCT_SPEC.md`, `ARCHITECTURE.md`, `ROADMAP.md`.
 - [x] Esqueleto de carpetas `app/` y `backend/`, `.gitignore` y `README.md` raíz.
-- [ ] Instalar Flutter SDK estable (Web + Linux) y comprobar con `flutter doctor`.
+- [x] Instalar Flutter SDK estable (Web + Linux) y comprobar con `flutter doctor`.
 - [x] Crear el entorno virtual `backend/.venv` e instalar las dependencias mínimas.
 
 **Salida:** `flutter doctor` OK para Web/Linux; el entorno Python está listo.
