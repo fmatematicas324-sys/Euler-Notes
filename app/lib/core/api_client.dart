@@ -1,0 +1,86 @@
+import 'dart:convert';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
+
+import 'api_exception.dart';
+import 'config.dart';
+
+/// Cliente REST mínimo para el backend local. Las features lo usan desde su
+/// capa `data/`; nunca desde widgets.
+class ApiClient {
+  ApiClient(this._http, {String baseUrl = apiBaseUrl})
+    : _baseUri = Uri.parse(baseUrl);
+
+  final http.Client _http;
+  final Uri _baseUri;
+
+  static const _jsonHeaders = {'Content-Type': 'application/json'};
+
+  Future<dynamic> get(String path) => _send(() => _http.get(_uri(path)));
+
+  Future<dynamic> post(String path, Object body) => _send(
+    () => _http.post(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+  );
+
+  Future<dynamic> put(String path, Object body) => _send(
+    () => _http.put(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+  );
+
+  Future<void> delete(String path) => _send(() => _http.delete(_uri(path)));
+
+  Uri _uri(String path) => _baseUri.resolve(path);
+
+  Future<dynamic> _send(Future<http.Response> Function() request) async {
+    final http.Response response;
+    try {
+      response = await request();
+    } on Exception catch (e) {
+      throw ApiException(
+        code: 'network_error',
+        message: 'No se pudo conectar con el backend ($e)',
+      );
+    }
+
+    final body = response.body.isEmpty
+        ? null
+        : _decode(utf8.decode(response.bodyBytes));
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return body;
+    }
+    final error = body is Map<String, dynamic> ? body['error'] : null;
+    if (error is Map<String, dynamic>) {
+      throw ApiException(
+        code: error['code'] as String? ?? 'http_error',
+        message: error['message'] as String? ?? 'Error desconocido',
+        statusCode: response.statusCode,
+      );
+    }
+    throw ApiException(
+      code: 'http_error',
+      message: 'Respuesta inesperada del backend',
+      statusCode: response.statusCode,
+    );
+  }
+
+  dynamic _decode(String text) {
+    try {
+      return jsonDecode(text);
+    } on FormatException {
+      throw const ApiException(
+        code: 'bad_response',
+        message: 'El backend devolvió una respuesta que no es JSON',
+      );
+    }
+  }
+}
+
+final httpClientProvider = Provider<http.Client>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return client;
+});
+
+final apiClientProvider = Provider<ApiClient>(
+  (ref) => ApiClient(ref.watch(httpClientProvider)),
+);
