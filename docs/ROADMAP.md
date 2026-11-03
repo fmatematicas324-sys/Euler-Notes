@@ -21,10 +21,10 @@
 ### App
 - [x] `flutter create` con plataformas web y linux; estructura `core/` + `features/`.
 - [x] `api_client` y configuración de la URL del backend.
-- [ ] Pantalla de cuadernos (listar, crear, renombrar, eliminar).
-- [ ] Pantalla de notas de un cuaderno.
-- [ ] Editor dividido Markdown + vista previa con LaTeX.
-- [ ] Panel de cálculo con opción de insertar el resultado en la nota.
+- [x] Pantalla de cuadernos (listar, crear, renombrar, eliminar).
+- [x] Pantalla de notas de un cuaderno.
+- [x] Editor dividido Markdown + vista previa con LaTeX.
+- [x] Panel de cálculo con opción de insertar el resultado en la nota.
 
 **Salida:** se cumplen los criterios de aceptación de `PRODUCT_SPEC.md §5`. Se etiqueta `v0.1.0`.
 

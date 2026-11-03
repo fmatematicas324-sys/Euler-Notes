@@ -81,3 +81,61 @@ cd backend && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 cd app && flutter run -d chrome    # o -d linux
 flutter analyze && flutter test
 ```
+
+---
+
+## 2026-11-03 — Fase 1 (interfaz gráfica v0.1) ✅
+
+| Commit | Contenido |
+|---|---|
+| `fcb4030` | Widgets comunes (`core/widgets/`) y panel de cálculo (`features/compute`) |
+| `103f07e` | Pantallas de cuadernos y notas, editor Markdown con LaTeX, 25 tests de widgets |
+| `3ae4cc3` | Prueba de punta a punta (`integration_test/`) contra el backend real |
+
+### Qué hace la app
+1. **Cuadernos** (`NotebooksScreen`): listar (más recientes primero), crear, renombrar y eliminar (con confirmación; borra también sus notas). Icono del estado del backend en la AppBar.
+2. **Cuaderno** (`NotebookScreen`): lista de notas, crear (abre el editor directamente) y eliminar.
+3. **Editor** (`NoteEditorScreen`):
+   - Markdown con vista previa en vivo: lado a lado con ≥ 840 px; pestañas *Editar / Vista previa* en pantallas estrechas.
+   - Fórmulas nativas: `$...$` en línea y `$$...$$` en bloque. El LaTeX inválido se muestra en rojo sin romper la vista previa.
+   - Botones `$ $ Fórmula` y `$$ Bloque`, que envuelven la selección.
+   - Guardado automático (800 ms tras dejar de escribir), Ctrl+S y guardado al salir, con indicador *Guardado / Sin guardar / Guardando… / Error al guardar*.
+4. **Panel de cálculo**: expresión, operación (Simplificar, Derivar, Integrar, Resolver) y variable. Muestra el resultado en LaTeX y en texto, y permite **insertarlo en línea o como bloque** en la posición del cursor. Los errores del backend se ven en el panel.
+
+### Verificación
+| Comprobación | Resultado |
+|---|---|
+| `flutter analyze` | No issues found |
+| `flutter test` (widgets + ApiClient) | **25 passed** |
+| `flutter test integration_test -d linux` (app real + backend real) | **1 passed**: cuaderno → nota → Markdown/LaTeX → cálculo SymPy → insertar → guardado → reabrir → eliminar |
+| `flutter run -d chrome --release` | La app carga en Chromium, conecta con el backend (`GET /health`, `GET /notebooks` = 200) y muestra los cuadernos |
+| Preflight CORS desde `http://localhost:8090` | 200 con `access-control-allow-origin` correcto |
+
+Criterios de aceptación de PRODUCT_SPEC §5:
+- **1–4:** cumplidos. Están cubiertos por la prueba de punta a punta (persistencia, LaTeX, `diff(sin(x)*x)`) y por los tests del backend (expresiones maliciosas).
+- **5:** Linux verificado de punta a punta. Web verificado al cargar y conectar con datos reales; el flujo interactivo en Chrome no está automatizado porque falta `chromedriver`. Para hacerlo a mano, sigue *Cómo ejecutar*.
+
+### Incidencias y decisiones
+- **`flutter run -d chrome` en modo debug falló:** la herramienta de depuración de Flutter no se conectó a Chromium en 5 s (*TimeoutException en WebkitDebugger.enable*). Es un fallo de la herramienta de depuración, no de la app; en modo `--release` arranca bien. Si se repite, se puede usar `flutter run -d web-server` y abrir la URL a mano.
+- **Puerto 8000 ocupado** en esta máquina por otro proceso que no se pudo identificar (no responde a `/health`). Las pruebas usaron el backend en el **8001**, con `--dart-define=API_BASE_URL=http://127.0.0.1:8001`.
+- **Fórmulas:** solo heredan el tamaño y el color del texto que las rodea; antes, un título en negrita las ponía en negrita. Las fórmulas en bloque se muestran un 30 % más grandes que el texto.
+- **Regla de imports entre features** aclarada en ARCHITECTURE §2: se permite usar la capa `presentation/` de otra feature para navegar o componer pantallas.
+- **Tests:** usan `FakeBackend` (`test/support/fake_backend.dart`), un `MockClient` en memoria con el mismo contrato que el backend, así que también prueban los repositorios y `ApiClient`.
+
+### Cómo ejecutar
+```bash
+# Terminal 1: backend (usa otro puerto si el 8000 está ocupado)
+cd backend && .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8001
+
+# Terminal 2: app
+cd app
+flutter run -d chrome --release --dart-define=API_BASE_URL=http://127.0.0.1:8001
+flutter run -d linux --dart-define=API_BASE_URL=http://127.0.0.1:8001
+
+# Prueba de punta a punta (con el backend arrancado)
+flutter test integration_test -d linux --dart-define=API_BASE_URL=http://127.0.0.1:8001
+```
+
+### Siguiente (Fase 2, v0.2)
+- Gráficas 2D de funciones, exportar a Markdown y PDF, búsqueda en notas.
+- Pendientes menores de v0.1: probar el flujo en Chrome con `chromedriver` y etiquetar `v0.1.0`.

@@ -48,7 +48,7 @@ CUADERNO_CIENTIFICO/
 - `domain/`: modelos inmutables y contratos de repositorio.
 - `presentation/`: widgets, pantallas y providers de Riverpod.
 
-`core/` no depende de ninguna feature, y una feature no importa a otra; si necesitan compartir algo, eso va a `core/`.
+`core/` no depende de ninguna feature. Una feature solo puede importar la capa `presentation/` de otra, y solo para navegar o componer pantallas (p. ej. `notebooks` abre `NotebookScreen` pasando `id` y título; el editor de `notes` incluye `ComputePanel`). Nunca importa su `data/` ni su `domain/`. Lo compartido va a `core/`, como `MathFormula`, los diálogos o `ApiClient`.
 
 ### Capas en backend
 `api` → `services` → `storage`. Cada capa solo llama a la de abajo. `domain` lo usan todas.
@@ -105,10 +105,15 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 - Los nombres desconocidos (p. ej. `eval`, `system`) se convierten en símbolos inertes de SymPy; nunca se resuelven a funciones de Python.
 - CORS: solo orígenes `http://localhost:*` y `http://127.0.0.1:*`. El servidor escucha solo en `127.0.0.1`.
 
-## 6. Renderizado en Flutter
-- Markdown con `flutter_markdown_plus`.
-- LaTeX con `flutter_math_fork`, mediante sintaxis personalizada (inline `$...$` y bloque `$$...$$`) conectada al parser Markdown.
-- Si una fórmula es inválida, se muestra el texto fuente en rojo y la app no se cae.
+## 6. Interfaz y renderizado en Flutter
+- **Pantallas:** `NotebooksScreen` → `NotebookScreen` → `NoteEditorScreen`, con `Navigator` y `MaterialPageRoute`.
+- **Estado:** `AsyncNotifier` de Riverpod por lista (cuadernos; notas por cuaderno con `family`). Después de cada cambio se recarga desde el backend, que es la fuente de verdad.
+- **Editor:** con ancho ≥ 840 px, texto y vista previa van lado a lado; con menos, en pestañas. Guarda solo tras 800 ms sin escribir, con Ctrl+S y al salir; si falla, pregunta antes de salir.
+- **Markdown:** `flutter_markdown_plus` (GFM) con dos sintaxis propias:
+  - `MathInlineSyntax`: `$...$` en línea (sin espacio junto a los `$`, para no confundir precios) y `$$...$$` dentro de un párrafo.
+  - `MathBlockSyntax`: `$$...$$` en una línea propia o en varias; se muestra como bloque centrado.
+- **LaTeX:** `flutter_math_fork` mediante `core/widgets/math_formula.dart`. Si una fórmula es inválida, se muestra el texto fuente en rojo y la app no se cae.
+- **Cálculo:** `ComputePanel` en un *bottom sheet*. Inserta el resultado en el cursor como `$...$` o como bloque `$$...$$` en una línea propia.
 
 ## 7. Dependencias mínimas v0.1
 **Backend:** `fastapi`, `uvicorn`, `sympy` · *dev:* `pytest`, `httpx`, `ruff`.
