@@ -1,6 +1,6 @@
 """Modelos Pydantic de entrada y salida de la API."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, StringConstraints
 
@@ -39,3 +39,21 @@ class NoteSummary(BaseModel):
 
 class Note(NoteSummary):
     content: str
+
+
+# --- Cálculo simbólico -------------------------------------------------------
+
+ComputeOp = Literal["simplify", "diff", "integrate", "solve"]
+Expression = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+VariableName = Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9]{0,19}$")]
+
+
+class ComputeRequest(BaseModel):
+    expr: Expression
+    op: ComputeOp
+    var: VariableName = "x"
+
+
+class ComputeResponse(BaseModel):
+    result_latex: str
+    result_text: str
