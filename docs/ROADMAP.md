@@ -13,14 +13,14 @@
 
 ## Fase 1 — v0.1 MVP
 ### Backend
-- [ ] `main.py` con `/health`, CORS solo para localhost y manejo de errores unificado.
-- [ ] Repositorio SQLite + `schema.sql`.
-- [ ] CRUD de `/notebooks` y `/notes` con sus tests.
-- [ ] Motor de cálculo SymPy seguro (lista blanca + tiempo máximo) y `POST /compute` con sus tests, incluidos casos maliciosos.
+- [x] `main.py` con `/health`, CORS solo para localhost y manejo de errores unificado.
+- [x] Repositorio SQLite + `schema.sql`.
+- [x] CRUD de `/notebooks` y `/notes` con sus tests.
+- [x] Motor de cálculo SymPy seguro (lista blanca + tiempo máximo) y `POST /compute` con sus tests, incluidos casos maliciosos.
 
 ### App
-- [ ] `flutter create` con plataformas web y linux; estructura `core/` + `features/`.
-- [ ] `api_client` y configuración de la URL del backend.
+- [x] `flutter create` con plataformas web y linux; estructura `core/` + `features/`.
+- [x] `api_client` y configuración de la URL del backend.
 - [ ] Pantalla de cuadernos (listar, crear, renombrar, eliminar).
 - [ ] Pantalla de notas de un cuaderno.
 - [ ] Editor dividido Markdown + vista previa con LaTeX.

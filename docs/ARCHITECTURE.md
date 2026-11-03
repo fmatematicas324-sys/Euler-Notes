@@ -72,6 +72,7 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 |---|---|---|
 | GET | `/notebooks` | → `[Notebook]` |
 | POST | `/notebooks` | `{title}` → `Notebook` (201) |
+| GET | `/notebooks/{id}` | → `Notebook` |
 | PUT | `/notebooks/{id}` | `{title}` → `Notebook` |
 | DELETE | `/notebooks/{id}` | → 204 |
 | GET | `/notebooks/{id}/notes` | → `[NoteSummary]` (sin `content`) |
@@ -83,7 +84,16 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 | GET | `/health` | → `{status: "ok", version}` |
 
 - `op` ∈ `simplify | diff | integrate | solve`. `var` es opcional (por defecto `x`).
-- Formato de error único: `{"error": {"code": "...", "message": "..."}}` con 400/404/408/422.
+- `solve` admite `"lhs = rhs"` o una expresión igualada a 0. Multiplicación implícita activa (`2x` = `2*x`).
+- Formato de error único: `{"error": {"code": "...", "message": "..."}}`.
+
+| HTTP | `code` | Cuándo |
+|---|---|---|
+| 400 | `invalid_expression` | Expresión no permitida o con sintaxis inválida |
+| 404 | `not_found` | Cuaderno, nota o ruta inexistente |
+| 408 | `compute_timeout` | El cálculo superó el tiempo máximo |
+| 422 | `validation_error` | Cuerpo de la petición inválido (campos, longitudes, `op`, `var`) |
+| 422 | `compute_error` | SymPy no pudo calcular (o se superó el límite de memoria) |
 
 ## 5. Seguridad del motor de cálculo
 - **Nunca** se usan `eval`/`exec` ni `sympify` sobre texto sin filtrar.
@@ -91,7 +101,8 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
   - `global_dict` limitado a una **lista blanca** de símbolos y funciones (`sin, cos, tan, exp, log, sqrt, pi, E, Abs, ...`);
   - `local_dict` vacío y transformaciones estándar (más multiplicación implícita).
 - Se rechaza antes de interpretar: longitud > 500 caracteres, `__`, `import`, `lambda`, `;`, corchetes de indexación y atributos (`.`) que no formen parte de un número.
-- **Tiempo máximo de 5 s** por operación: el cálculo corre en un subproceso que se termina si se pasa (error 408).
+- **Tiempo máximo de 5 s** por operación (`CUADERNO_COMPUTE_TIMEOUT`): el cálculo corre en un subproceso `forkserver` con SymPy precargado y **1 GiB** de memoria máxima (`RLIMIT_AS`); si se pasa del tiempo se mata (error 408).
+- Los nombres desconocidos (p. ej. `eval`, `system`) se convierten en símbolos inertes de SymPy; nunca se resuelven a funciones de Python.
 - CORS: solo orígenes `http://localhost:*` y `http://127.0.0.1:*`. El servidor escucha solo en `127.0.0.1`.
 
 ## 6. Renderizado en Flutter
