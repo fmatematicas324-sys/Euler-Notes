@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'core/theme.dart';
-import 'features/notebooks/presentation/home_screen.dart';
+import 'features/notebooks/presentation/notebooks_screen.dart';
 
 class CuadernoApp extends StatelessWidget {
   const CuadernoApp({super.key});
@@ -13,7 +13,7 @@ class CuadernoApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      home: const HomeScreen(),
+      home: const NotebooksScreen(),
     );
   }
 }
