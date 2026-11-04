@@ -6,3 +6,11 @@ String formatDateTime(DateTime value) {
   return '${_two(local.day)}/${_two(local.month)}/${local.year} '
       '${_two(local.hour)}:${_two(local.minute)}';
 }
+
+/// Tamaño legible: `850 B`, `12,4 KB`, `3,1 MB`.
+String formatBytes(int bytes) {
+  if (bytes < 1024) return '$bytes B';
+  final kb = bytes / 1024;
+  if (kb < 1024) return '${kb.toStringAsFixed(1).replaceAll('.', ',')} KB';
+  return '${(kb / 1024).toStringAsFixed(1).replaceAll('.', ',')} MB';
+}

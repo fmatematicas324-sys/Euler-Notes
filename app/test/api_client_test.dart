@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cuaderno_cientifico/core/api_client.dart';
 import 'package:cuaderno_cientifico/core/api_exception.dart';
@@ -102,6 +103,31 @@ void main() {
             .having((e) => e.statusCode, 'statusCode', 422),
       ),
     );
+  });
+
+  test('postBinary envía bytes con su tipo y query', () async {
+    final client = ApiClient(
+      MockClient((request) async {
+        expect(request.url.queryParameters, {'filename': 'a.pdf'});
+        expect(request.headers['Content-Type'], 'application/pdf');
+        expect(request.bodyBytes, [1, 2, 3]);
+        return _json({'id': 1}, 201);
+      }),
+    );
+    final body = await client.postBinary(
+      '/documents',
+      Uint8List.fromList([1, 2, 3]),
+      contentType: 'application/pdf',
+      query: {'filename': 'a.pdf'},
+    );
+    expect((body as Map)['id'], 1);
+  });
+
+  test('getBytes devuelve el cuerpo binario', () async {
+    final client = ApiClient(
+      MockClient((_) async => http.Response.bytes([7, 8], 200)),
+    );
+    expect(await client.getBytes('/documents/1/file'), [7, 8]);
   });
 
   test('DELETE con 204 sin cuerpo no falla', () async {

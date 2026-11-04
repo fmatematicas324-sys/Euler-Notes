@@ -5,6 +5,7 @@ import 'package:cuaderno_cientifico/app.dart';
 import 'package:cuaderno_cientifico/core/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -88,6 +89,12 @@ class FakeBackend {
   final noteUpdates = <Map<String, dynamic>>[];
   final plotRequests = <Map<String, dynamic>>[];
   final diagramRequests = <Map<String, dynamic>>[];
+  final documents = <int, Map<String, dynamic>>{};
+  final documentFiles = <int, List<int>>{};
+  final pageTextRequests = <int>[];
+
+  /// Si no es `null`, la subida de PDF falla con este (status, código, mensaje).
+  (int, String, String)? uploadError;
 
   /// Respuesta de `/plot`. Por defecto, un PNG válido.
   http.Response Function(Map<String, dynamic> request) onPlot = (_) =>
@@ -139,7 +146,8 @@ class FakeBackend {
 
   Future<http.Response> _handle(http.Request request) async {
     if (offline) throw http.ClientException('sin conexión');
-    final body = request.body.isEmpty
+    final isJson = (request.headers['content-type'] ?? '').contains('json');
+    final body = request.body.isEmpty || !isJson
         ? <String, dynamic>{}
         : jsonDecode(request.body) as Map<String, dynamic>;
     final segments = request.url.pathSegments;
@@ -195,6 +203,47 @@ class FakeBackend {
       case ('POST', ['diagram']):
         diagramRequests.add(body);
         return onPlot(body);
+      case ('GET', ['documents']):
+        return _json(documents.values.toList().reversed.toList());
+      case ('POST', ['documents']):
+        if (uploadError case (final status, final code, final message)) {
+          return _json({
+            'error': {'code': code, 'message': message},
+          }, status);
+        }
+        final id = _nextId++;
+        documentFiles[id] = request.bodyBytes;
+        documents[id] = {
+          'id': id,
+          'filename':
+              request.url.queryParameters['filename'] ?? 'documento.pdf',
+          'size': request.bodyBytes.length,
+          'pages': 2,
+          'created_at': _now(),
+        };
+        return _json(documents[id]!, 201);
+      case ('GET', ['documents', final id, 'file']):
+        final bytes = documentFiles[int.parse(id)];
+        return bytes == null
+            ? _notFound()
+            : http.Response.bytes(
+                bytes,
+                200,
+                headers: {'content-type': 'application/pdf'},
+              );
+      case ('GET', ['documents', final id, 'pages', final page, 'text']):
+        if (!documents.containsKey(int.parse(id))) return _notFound();
+        pageTextRequests.add(int.parse(page));
+        return _json({
+          'page': int.parse(page),
+          'text': 'Página $page: ∫ x² dx',
+          'latex': 'Página $page: \\int x^{2} dx',
+        });
+      case ('DELETE', ['documents', final id]):
+        documentFiles.remove(int.parse(id));
+        return documents.remove(int.parse(id)) == null
+            ? _notFound()
+            : http.Response('', 204);
       case ('POST', ['compute']):
         computeRequests.add(body);
         final (status, response) = onCompute(body);
@@ -219,13 +268,17 @@ Future<void> pumpApp(
   WidgetTester tester,
   FakeBackend backend, {
   Size size = const Size(1280, 800),
+  List<Override> overrides = const [],
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [httpClientProvider.overrideWithValue(backend.client)],
+      overrides: [
+        httpClientProvider.overrideWithValue(backend.client),
+        ...overrides,
+      ],
       child: const CuadernoApp(),
     ),
   );

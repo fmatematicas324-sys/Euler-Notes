@@ -8,6 +8,9 @@ import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/feedback.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../compute/presentation/compute_panel.dart';
+import '../../documents/domain/library_document.dart';
+import '../../documents/presentation/document_library_sheet.dart';
+import '../../documents/presentation/document_viewer_screen.dart';
 import '../../plot/domain/diagram_spec.dart';
 import '../../symbols/domain/latex_insertion.dart';
 import '../../symbols/domain/latex_symbol.dart';
@@ -238,6 +241,24 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     if (figureBlock != null) _insertBlock(figureBlock);
   }
 
+  Future<void> _openDocuments() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => DocumentLibrarySheet(onOpen: _openDocument),
+    );
+  }
+
+  void _openDocument(LibraryDocument document) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            DocumentViewerScreen(document: document, onInsert: _insertBlock),
+      ),
+    );
+  }
+
   Future<void> _openCompute() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -314,6 +335,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           onBlockFormula: _insertBlockFormula,
           onFigure: _insertFigure,
           onCompute: _openCompute,
+          onDocuments: _openDocuments,
           symbolsVisible: _showSymbols,
           onToggleSymbols: () => setState(() => _showSymbols = !_showSymbols),
         ),
@@ -391,6 +413,7 @@ class _EditorToolbar extends StatelessWidget {
     required this.onBlockFormula,
     required this.onFigure,
     required this.onCompute,
+    required this.onDocuments,
     required this.symbolsVisible,
     required this.onToggleSymbols,
   });
@@ -401,6 +424,7 @@ class _EditorToolbar extends StatelessWidget {
   /// `null`: gráfica de función; si no, la plantilla de diagrama elegida.
   final ValueChanged<String?> onFigure;
   final VoidCallback onCompute;
+  final VoidCallback onDocuments;
   final bool symbolsVisible;
   final VoidCallback onToggleSymbols;
 
@@ -451,6 +475,11 @@ class _EditorToolbar extends StatelessWidget {
                   : Icons.keyboard_alt_outlined,
             ),
             label: const Text('Símbolos'),
+          ),
+          TextButton.icon(
+            onPressed: onDocuments,
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('PDF'),
           ),
           FilledButton.tonalIcon(
             onPressed: onCompute,

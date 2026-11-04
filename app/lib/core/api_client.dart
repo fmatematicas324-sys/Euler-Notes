@@ -30,6 +30,24 @@ class ApiClient {
 
   Future<void> delete(String path) => _send(() => _http.delete(_uri(path)));
 
+  /// POST con cuerpo binario (p. ej. un PDF) y respuesta JSON.
+  Future<dynamic> postBinary(
+    String path,
+    Uint8List body, {
+    required String contentType,
+    Map<String, String>? query,
+  }) => _send(
+    () => _http.post(
+      _uri(path).replace(queryParameters: query),
+      headers: {'Content-Type': contentType},
+      body: body,
+    ),
+  );
+
+  /// GET con respuesta binaria (p. ej. un PDF).
+  Future<Uint8List> getBytes(String path) async =>
+      (await _request(() => _http.get(_uri(path)))).bodyBytes;
+
   /// POST con cuerpo JSON y respuesta binaria (p. ej. una imagen PNG).
   Future<Uint8List> postForBytes(String path, Object body) async {
     final response = await _request(
