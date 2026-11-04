@@ -10,8 +10,10 @@ from dataclasses import dataclass
 
 import numpy as np
 import sympy as sp
+from matplotlib.axes import Axes
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
+from matplotlib.mathtext import MathTextParser
 
 from app.services import sympy_engine as engine
 
@@ -112,44 +114,69 @@ def _break_discontinuities(ys: np.ndarray, y_min: float, y_max: float) -> np.nda
     return ys
 
 
-def _draw(
-    spec: PlotSpec,
-    xs: np.ndarray,
-    curves: list[np.ndarray],
-    labels: list[str],
-    y_range: tuple[float, float],
-) -> bytes:
-    ink = _INK[spec.theme]
-    fig = Figure(figsize=(spec.width / 100, spec.height / 100), dpi=100 * spec.scale)
+# --- Utilidades compartidas con `diagrams` -------------------------------------
+
+SERIES = _SERIES
+INK = _INK
+sample = _sample
+auto_y_range = _auto_y_range
+break_discontinuities = _break_discontinuities
+_MATHTEXT = MathTextParser("path")
+
+
+def math_label(expr: sp.Expr, prefix: str = "") -> str:
+    """Etiqueta mathtext (`$...$`) de una expresión, o texto plano si matplotlib
+    no puede interpretar el LaTeX que genera SymPy."""
+    # \dfrac: en leyendas, las fracciones de \frac quedan demasiado pequeñas.
+    label = f"${prefix}{sp.latex(expr).replace(r'\frac', r'\dfrac')}$"
+    try:
+        _MATHTEXT.parse(label)
+        return label
+    except ValueError:
+        return f"{prefix}{expr}"
+
+
+def new_axes(theme: str, width: int, height: int, scale: float) -> tuple[Figure, Axes]:
+    fig = Figure(figsize=(width / 100, height / 100), dpi=100 * scale)
     FigureCanvasAgg(fig)
     ax = fig.add_subplot()
     ax.set_facecolor("none")
-    y_min, y_max = y_range
-
-    if y_min < 0 < y_max:
-        ax.axhline(0, color=ink["axis"], linewidth=0.9, zorder=1)
-    if spec.x_min < 0 < spec.x_max:
-        ax.axvline(0, color=ink["axis"], linewidth=0.9, zorder=1)
-    for ys, label, color in zip(curves, labels, _SERIES[spec.theme], strict=False):
-        ax.plot(
-            xs, _break_discontinuities(ys, y_min, y_max), color=color, linewidth=2,
-            label=label, zorder=3,
-        )  # fmt: skip
-
-    ax.set_xlim(spec.x_min, spec.x_max)
-    ax.set_ylim(y_min, y_max)
-    ax.grid(True, color=ink["grid"], linewidth=0.7)
-    ax.set_xlabel(spec.var, color=ink["text"])
+    ink = _INK[theme]
     ax.tick_params(colors=ink["text"], labelsize=9)
     for spine in ax.spines.values():
         spine.set_color(ink["grid"])
-    legend = ax.legend(
-        loc="best", fontsize=10, facecolor=ink["legend"], edgecolor=ink["grid"], framealpha=0.9
-    )
-    for text in legend.get_texts():
-        text.set_color(ink["text"])
-    fig.tight_layout()
+    return fig, ax
 
+
+def style_cartesian(
+    ax: Axes, theme: str, x_range: tuple[float, float], y_range: tuple[float, float]
+) -> None:
+    """Rejilla, ejes x=0 / y=0 visibles y límites."""
+    ink = _INK[theme]
+    (x_min, x_max), (y_min, y_max) = x_range, y_range
+    if y_min < 0 < y_max:
+        ax.axhline(0, color=ink["axis"], linewidth=0.9, zorder=1)
+    if x_min < 0 < x_max:
+        ax.axvline(0, color=ink["axis"], linewidth=0.9, zorder=1)
+    ax.set_xlim(x_min, x_max)
+    ax.set_ylim(y_min, y_max)
+    ax.grid(True, color=ink["grid"], linewidth=0.7)
+
+
+def to_png(fig: Figure, ax: Axes, theme: str, *, legend: bool = True) -> bytes:
+    ink = _INK[theme]
+    if legend and ax.get_legend_handles_labels()[0]:
+        box = ax.legend(
+            loc="best", fontsize=10, facecolor=ink["legend"], edgecolor=ink["grid"],
+            framealpha=0.9,
+        )  # fmt: skip
+        for text in box.get_texts():
+            text.set_color(ink["text"])
+    if ax.get_title():
+        ax.title.set_color(ink["text"])
+    ax.xaxis.label.set_color(ink["text"])
+    ax.yaxis.label.set_color(ink["text"])
+    fig.tight_layout()
     buffer = io.BytesIO()
     fig.savefig(buffer, format="png", transparent=True)
     return buffer.getvalue()
@@ -167,16 +194,24 @@ def render_plot(spec: PlotSpec) -> bytes:
     else:
         y_range = _auto_y_range(curves)
 
-    try:
-        # \dfrac: en la leyenda, las fracciones de \frac quedan demasiado pequeñas.
-        labels = [f"${sp.latex(expr).replace(r'\frac', r'\dfrac')}$" for expr in exprs]
-        return _draw(spec, xs, curves, labels, y_range)
-    except ValueError:
-        # mathtext de matplotlib no admite todo el LaTeX de SymPy: leyenda en texto.
-        return _draw(spec, xs, curves, list(spec.exprs), y_range)
+    fig, ax = new_axes(spec.theme, spec.width, spec.height, spec.scale)
+    style_cartesian(ax, spec.theme, (spec.x_min, spec.x_max), y_range)
+    for expr, ys, color in zip(exprs, curves, _SERIES[spec.theme], strict=False):
+        ax.plot(
+            xs, _break_discontinuities(ys, *y_range), color=color, linewidth=2,
+            label=math_label(expr), zorder=3,
+        )  # fmt: skip
+    ax.set_xlabel(spec.var)
+    return to_png(fig, ax, spec.theme)
 
 
 def warm_up() -> None:
     """Carga fuentes y mathtext de matplotlib (≈1 s la primera vez). Se llama al
     precargar el forkserver para que cada gráfica no pague ese coste."""
     render_plot(PlotSpec(exprs=("x",), width=200, height=150))
+    from app.services.diagrams import render_diagram  # noqa: PLC0415  (evita ciclo)
+
+    render_diagram(
+        {"kind": "graph", "edges": [{"source": "A", "target": "B", "weight": None}],
+         "directed": True, "theme": "light", "width": 200, "height": 150, "scale": 1.0}
+    )  # fmt: skip

@@ -77,17 +77,22 @@ class ComputeResponse(BaseModel):
 Coordinate = Annotated[float, Field(allow_inf_nan=False, ge=-1e6, le=1e6)]
 
 
-class PlotRequest(BaseModel):
+class FigureOptions(BaseModel):
+    """Aspecto de la imagen: tema, tamaño en px lógicos y densidad de píxeles."""
+
+    theme: Literal["light", "dark"] = "light"
+    width: Annotated[int, Field(ge=200, le=1600)] = 800
+    height: Annotated[int, Field(ge=150, le=1200)] = 500
+    scale: Annotated[float, Field(ge=1, le=3)] = 1.0
+
+
+class PlotRequest(FigureOptions):
     exprs: Annotated[list[Expression], Field(min_length=1, max_length=5)]
     var: VariableName = "x"
     x_min: Coordinate = -10.0
     x_max: Coordinate = 10.0
     y_min: Coordinate | None = None
     y_max: Coordinate | None = None
-    theme: Literal["light", "dark"] = "light"
-    width: Annotated[int, Field(ge=200, le=1600)] = 800
-    height: Annotated[int, Field(ge=150, le=1200)] = 500
-    scale: Annotated[float, Field(ge=1, le=3)] = 1.0
 
     @model_validator(mode="after")
     def _check_ranges(self) -> "PlotRequest":
@@ -115,3 +120,68 @@ class DocumentPageText(BaseModel):
     page: int
     text: str
     latex: str
+
+
+# --- Diagramas -----------------------------------------------------------------
+
+# Etiquetas visibles en el diagrama: sin `$` (mathtext) ni caracteres de control.
+DiagramLabel = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True, min_length=1, max_length=24, pattern=r"^[\w .,()+'\-]+$"
+    ),
+]
+Finite = Annotated[float, Field(allow_inf_nan=False)]
+
+
+class FunctionDiagram(FigureOptions):
+    kind: Literal["function"]
+    expr: Expression
+    op: ComputeOp
+    var: VariableName = "x"
+    x_min: Coordinate = -10.0
+    x_max: Coordinate = 10.0
+
+    @model_validator(mode="after")
+    def _check_range(self) -> "FunctionDiagram":
+        if self.x_min >= self.x_max:
+            raise ValueError("x_min debe ser menor que x_max")
+        return self
+
+
+class Force(BaseModel):
+    label: DiagramLabel
+    magnitude: Annotated[float, Field(gt=0, le=1e6, allow_inf_nan=False)]
+    angle: Annotated[float, Field(ge=-360, le=360, allow_inf_nan=False)]
+
+
+class ForcesDiagram(FigureOptions):
+    kind: Literal["forces"]
+    forces: Annotated[list[Force], Field(min_length=1, max_length=8)]
+    show_resultant: bool = True
+
+
+class ProjectileDiagram(FigureOptions):
+    kind: Literal["projectile"]
+    v0: Annotated[float, Field(gt=0, le=1e4, allow_inf_nan=False)]
+    angle: Annotated[float, Field(gt=0, le=90, allow_inf_nan=False)]
+    g: Annotated[float, Field(gt=0, le=1000, allow_inf_nan=False)] = 9.81
+    h0: Annotated[float, Field(ge=0, le=1e5, allow_inf_nan=False)] = 0.0
+
+
+class Edge(BaseModel):
+    source: DiagramLabel
+    target: DiagramLabel
+    weight: Finite | None = None
+
+
+class GraphDiagram(FigureOptions):
+    kind: Literal["graph"]
+    edges: Annotated[list[Edge], Field(min_length=1, max_length=60)]
+    directed: bool = False
+
+
+DiagramRequest = Annotated[
+    FunctionDiagram | ForcesDiagram | ProjectileDiagram | GraphDiagram,
+    Field(discriminator="kind"),
+]
