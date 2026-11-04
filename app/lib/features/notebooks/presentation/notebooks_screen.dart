@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/backend_status_icon.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/feedback.dart';
@@ -83,6 +84,7 @@ class NotebooksScreen extends ConsumerWidget {
     final notebooks = ref.watch(notebooksControllerProvider);
     return Scaffold(
       appBar: AppBar(
+        leading: const Padding(padding: EdgeInsets.all(12), child: AppLogo()),
         title: const Text('Cuaderno Científico'),
         actions: [
           BackendStatusIcon(

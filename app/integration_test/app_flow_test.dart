@@ -6,12 +6,15 @@
 // (límite de cálculo amplio: la prueba verifica el flujo, no el rendimiento,
 // y en máquinas cargadas una gráfica puede superar los 5 s por defecto)
 //   cd app && flutter test integration_test -d linux \
-//       [--dart-define=SCREENSHOT_DIR=/ruta/capturas]
+//       [--dart-define=SCREENSHOT_DIR=/ruta/capturas] \
+//       [--dart-define=SAMPLE_PDF=/ruta/a/un.pdf]   (activa los pasos de PDF)
 import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:cuaderno_cientifico/app.dart';
+import 'package:cuaderno_cientifico/features/documents/data/documents_repository.dart';
 import 'package:cuaderno_cientifico/features/notebooks/presentation/notebook_cover_card.dart';
+import 'package:cuaderno_cientifico/features/notes/presentation/markdown_preview.dart';
 import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -21,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 const _screenshotDir = String.fromEnvironment('SCREENSHOT_DIR');
+const _samplePdf = String.fromEnvironment('SAMPLE_PDF');
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -80,8 +84,32 @@ void main() {
   Finder notebookItem(String title) =>
       find.widgetWithText(NotebookCoverCard, title);
 
+  /// Imagen ya cargada de la figura número [index] de la vista previa,
+  /// desplazando la vista previa hasta ella (las que no se ven no se construyen).
+  Future<void> waitForFigure(WidgetTester tester, int index) async {
+    final preview = find.descendant(
+      of: find.byType(MarkdownPreview),
+      matching: find.byType(Scrollable),
+    );
+    final figure = find.byType(FigureView);
+    final deadline = DateTime.now().add(const Duration(seconds: 30));
+    while (figure.evaluate().length <= index) {
+      if (DateTime.now().isAfter(deadline)) {
+        throw TestFailure('No apareció la figura $index');
+      }
+      await tester.drag(preview.first, const Offset(0, -200));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.ensureVisible(figure.at(index));
+    await waitFor(
+      tester,
+      find.descendant(of: figure.at(index), matching: find.byType(Image)),
+      timeout: const Duration(seconds: 30),
+    );
+  }
+
   testWidgets(
-    'flujo completo: cuaderno → nota → LaTeX → cálculo → gráfica → guardado',
+    'flujo completo: cuaderno → nota → LaTeX → cálculo → figuras → PDF',
     (tester) async {
       final notebookTitle = 'E2E ${DateTime.now().millisecondsSinceEpoch}';
       final content = find.byKey(const Key('note-content'));
@@ -89,7 +117,18 @@ void main() {
       await tester.pumpWidget(
         RepaintBoundary(
           key: boundaryKey,
-          child: const ProviderScope(child: CuadernoApp()),
+          child: ProviderScope(
+            overrides: [
+              if (_samplePdf.isNotEmpty)
+                pdfPickerProvider.overrideWithValue(
+                  () async => (
+                    name: 'muestra.pdf',
+                    bytes: await File(_samplePdf).readAsBytes(),
+                  ),
+                ),
+            ],
+            child: const CuadernoApp(),
+          ),
         ),
       );
       await waitFor(tester, find.byTooltip('Backend conectado (v0.1.0)'));
@@ -127,25 +166,48 @@ void main() {
       await waitFor(tester, find.text('x*cos(x) + sin(x)'));
       await screenshot(tester, '03_calculo');
 
+      // Con la representación visual activada se añade su diagrama.
       await tester.tap(find.text('Insertar como bloque'));
       await tester.pumpAndSettle();
       expect(find.byType(Math), findsNWidgets(3));
+      await waitForFigure(tester, 0);
 
-      // 5. Gráfica real (SymPy + matplotlib) desde un bloque ```plot.
+      // 5. Gráfica (bloque ```plot) y diagrama de cuerpo libre (plantilla).
       await tester.tap(find.text('Gráfica'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Gráfica de función'));
-      await waitFor(
-        tester,
-        find.descendant(
-          of: find.byType(FigureView),
-          matching: find.byType(Image),
-        ),
-      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gráfica'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cuerpo libre'));
+      await tester.pumpAndSettle();
+      await waitForFigure(tester, 1);
+      await waitForFigure(tester, 2);
+
+      // 6. Papel milimetrado.
+      await tester.tap(find.byTooltip('Papel'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Milimetrado'));
+      await tester.pumpAndSettle();
+
+      // 7. PDF: importar, leer (pdfium real) e insertar una cita.
+      if (_samplePdf.isNotEmpty) {
+        await tester.tap(find.text('PDF'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Importar PDF'));
+        await waitFor(tester, find.text('Página 1 de 2'));
+        await waitFor(tester, find.byKey(const Key('page-text')));
+        await tester.pump(const Duration(seconds: 2)); // páginas de pdfium
+        await screenshot(tester, '06_pdf');
+        await tester.tap(find.text('Insertar página como cita'));
+        await tester.pumpAndSettle();
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+      }
       await waitFor(tester, find.text('Guardado'));
       await screenshot(tester, '04_editor');
 
-      // 6. Volver, reabrir y comprobar que se guardó en el backend.
+      // 8. Volver, reabrir y comprobar que se guardó en el backend.
       await tester.pageBack();
       await waitFor(tester, listItem('Relatividad'));
       await screenshot(tester, '05_notas');
@@ -158,8 +220,13 @@ void main() {
       );
       expect(saved, contains(r'$E = mc^2$'));
       expect(saved, contains('```plot\nsin(x)\nx: -2pi, 2pi\n```'));
+      expect(saved, contains('```diagram\ntipo: funcion\nf: sin(x)*x'));
+      expect(saved, contains('```diagram\ntipo: fuerzas'));
+      if (_samplePdf.isNotEmpty) {
+        expect(saved, contains('> — *muestra.pdf*, p. 1'));
+      }
 
-      // 7. Limpieza: eliminar el cuaderno (y sus notas en cascada).
+      // 9. Limpieza: eliminar el cuaderno (y sus notas en cascada).
       await tester.pageBack();
       await waitFor(tester, listItem('Relatividad'));
       await tester.pageBack();
