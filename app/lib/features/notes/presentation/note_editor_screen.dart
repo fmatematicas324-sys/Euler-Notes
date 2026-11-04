@@ -16,7 +16,9 @@ import '../../symbols/domain/latex_insertion.dart';
 import '../../symbols/domain/latex_symbol.dart';
 import '../../symbols/presentation/symbol_palette.dart';
 import '../data/notes_repository.dart';
+import '../domain/paper_style.dart';
 import 'markdown_preview.dart';
+import 'paper_background.dart';
 
 enum SaveStatus { saved, pending, saving, failed }
 
@@ -41,6 +43,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   final _content = TextEditingController();
   final _contentFocus = FocusNode();
   bool _showSymbols = false;
+  PaperStyle _paper = PaperStyle.blank;
 
   bool _loaded = false;
   Object? _loadError;
@@ -79,6 +82,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       if (!mounted) return;
       _savedTitle = note.title;
       _savedContent = note.content;
+      _paper = note.paper;
       _title.text = note.title;
       _content.text = note.content;
       setState(() => _loaded = true);
@@ -241,6 +245,16 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     if (figureBlock != null) _insertBlock(figureBlock);
   }
 
+  Future<void> _changePaper(PaperStyle paper) async {
+    final previous = _paper;
+    setState(() => _paper = paper);
+    final ok = await runGuarded(
+      context,
+      () => _repository.update(widget.noteId, paper: paper),
+    );
+    if (!ok && mounted) setState(() => _paper = previous);
+  }
+
   Future<void> _openDocuments() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -307,6 +321,25 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
             actions: [
               if (_loaded) ...[
                 _SaveStatusLabel(status: _status),
+                PopupMenuButton<PaperStyle>(
+                  tooltip: 'Papel',
+                  icon: const Icon(Icons.grid_4x4),
+                  initialValue: _paper,
+                  onSelected: _changePaper,
+                  itemBuilder: (_) => [
+                    for (final paper in PaperStyle.values)
+                      PopupMenuItem(
+                        value: paper,
+                        child: Row(
+                          children: [
+                            PaperSwatch(style: paper),
+                            const SizedBox(width: 12),
+                            Text(paper.label),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
                 IconButton(
                   tooltip: 'Guardar (Ctrl+S)',
                   icon: const Icon(Icons.save_outlined),
@@ -320,6 +353,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       ),
     );
   }
+
+  /// Altura de línea del editor, para alinear el papel renglonado.
+  double _editorLineHeight(BuildContext context) =>
+      (Theme.of(context).textTheme.bodyLarge?.fontSize ?? 16) * _editorHeight;
+
+  static const _editorHeight = 1.4;
 
   Widget _buildBody() {
     if (_loadError != null) {
@@ -342,25 +381,32 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         if (_showSymbols) SymbolPalette(onSelected: _insertSymbol),
         const Divider(height: 1),
         Expanded(
-          child: TextField(
-            key: const Key('note-content'),
-            controller: _content,
-            focusNode: _contentFocus,
-            expands: true,
-            maxLines: null,
-            keyboardType: TextInputType.multiline,
-            textAlignVertical: TextAlignVertical.top,
-            style: const TextStyle(fontFamily: 'monospace', height: 1.4),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.all(16),
-              hintText:
-                  'Escribe en Markdown.\n\n'
-                  r'Fórmulas en línea: $E = mc^2$'
-                  '\n'
-                  r'En bloque: $$\int_0^1 x^2\,dx$$'
-                  '\n'
-                  'Gráficas: un bloque ```plot con sin(x)',
+          child: PaperBackground(
+            style: _paper,
+            lineHeight: _editorLineHeight(context),
+            child: TextField(
+              key: const Key('note-content'),
+              controller: _content,
+              focusNode: _contentFocus,
+              expands: true,
+              maxLines: null,
+              keyboardType: TextInputType.multiline,
+              textAlignVertical: TextAlignVertical.top,
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                height: _editorHeight,
+              ),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.all(16),
+                hintText:
+                    'Escribe en Markdown.\n\n'
+                    r'Fórmulas en línea: $E = mc^2$'
+                    '\n'
+                    r'En bloque: $$\int_0^1 x^2\,dx$$'
+                    '\n'
+                    'Gráficas: un bloque ```plot con sin(x)',
+              ),
             ),
           ),
         ),
@@ -368,7 +414,10 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     );
     final preview = ValueListenableBuilder<TextEditingValue>(
       valueListenable: _content,
-      builder: (_, value, _) => MarkdownPreview(data: value.text),
+      builder: (_, value, _) => PaperBackground(
+        style: _paper,
+        child: MarkdownPreview(data: value.text),
+      ),
     );
 
     return LayoutBuilder(

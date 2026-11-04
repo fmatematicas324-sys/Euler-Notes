@@ -1,7 +1,10 @@
+import 'notebook_cover.dart';
+
 class Notebook {
   const Notebook({
     required this.id,
     required this.title,
+    required this.cover,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -9,12 +12,14 @@ class Notebook {
   factory Notebook.fromJson(Map<String, dynamic> json) => Notebook(
     id: json['id'] as int,
     title: json['title'] as String,
+    cover: NotebookCover.fromId(json['cover'] as String?),
     createdAt: DateTime.parse(json['created_at'] as String),
     updatedAt: DateTime.parse(json['updated_at'] as String),
   );
 
   final int id;
   final String title;
+  final NotebookCover cover;
   final DateTime createdAt;
   final DateTime updatedAt;
 }

@@ -118,19 +118,25 @@ class FakeBackend {
 
   String _now() => DateTime.utc(2026, 11, 3, 10, 0, _clock++).toIso8601String();
 
-  int addNotebook(String title) {
+  int addNotebook(String title, {String cover = 'classic'}) {
     final id = _nextId++;
     final ts = _now();
     notebooks[id] = {
       'id': id,
       'title': title,
+      'cover': cover,
       'created_at': ts,
       'updated_at': ts,
     };
     return id;
   }
 
-  int addNote(int notebookId, String title, {String content = ''}) {
+  int addNote(
+    int notebookId,
+    String title, {
+    String content = '',
+    String paper = 'blank',
+  }) {
     final id = _nextId++;
     final ts = _now();
     notes[id] = {
@@ -138,6 +144,7 @@ class FakeBackend {
       'notebook_id': notebookId,
       'title': title,
       'content': content,
+      'paper': paper,
       'created_at': ts,
       'updated_at': ts,
     };
@@ -158,12 +165,16 @@ class FakeBackend {
       case ('GET', ['notebooks']):
         return _json(notebooks.values.toList().reversed.toList());
       case ('POST', ['notebooks']):
-        return _json(notebooks[addNotebook(body['title'] as String)]!, 201);
+        final id = addNotebook(
+          body['title'] as String,
+          cover: body['cover'] as String? ?? 'classic',
+        );
+        return _json(notebooks[id]!, 201);
       case ('PUT', ['notebooks', final id]):
         final notebook = notebooks[int.parse(id)];
         if (notebook == null) return _notFound();
         notebook
-          ..['title'] = body['title']
+          ..addAll(body)
           ..['updated_at'] = _now();
         return _json(notebook);
       case ('DELETE', ['notebooks', final id]):

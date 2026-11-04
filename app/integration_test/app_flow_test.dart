@@ -11,6 +11,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:cuaderno_cientifico/app.dart';
+import 'package:cuaderno_cientifico/features/notebooks/presentation/notebook_cover_card.dart';
 import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -76,6 +77,8 @@ void main() {
   // Busca el elemento de una lista: `find.text` también encontraría el texto
   // dentro de un TextField (el diálogo de creación o el título del editor).
   Finder listItem(String title) => find.widgetWithText(ListTile, title);
+  Finder notebookItem(String title) =>
+      find.widgetWithText(NotebookCoverCard, title);
 
   testWidgets(
     'flujo completo: cuaderno → nota → LaTeX → cálculo → gráfica → guardado',
@@ -94,11 +97,11 @@ void main() {
 
       // 1. Crear cuaderno.
       await createWithDialog(tester, 'Nuevo cuaderno', notebookTitle);
-      await waitFor(tester, listItem(notebookTitle));
+      await waitFor(tester, notebookItem(notebookTitle));
       await screenshot(tester, '02_cuadernos');
 
       // 2. Abrir cuaderno y crear nota (abre el editor).
-      await tester.tap(listItem(notebookTitle));
+      await tester.tap(notebookItem(notebookTitle));
       await waitFor(tester, find.text('Este cuaderno está vacío'));
       await createWithDialog(tester, 'Nueva nota', 'Relatividad');
       await waitFor(tester, content);
@@ -130,6 +133,8 @@ void main() {
 
       // 5. Gráfica real (SymPy + matplotlib) desde un bloque ```plot.
       await tester.tap(find.text('Gráfica'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Gráfica de función'));
       await waitFor(
         tester,
         find.descendant(
@@ -158,10 +163,10 @@ void main() {
       await tester.pageBack();
       await waitFor(tester, listItem('Relatividad'));
       await tester.pageBack();
-      await waitFor(tester, listItem(notebookTitle));
+      await waitFor(tester, notebookItem(notebookTitle));
       await tester.tap(
         find.descendant(
-          of: listItem(notebookTitle),
+          of: notebookItem(notebookTitle),
           matching: find.byTooltip('Opciones'),
         ),
       );
@@ -169,7 +174,7 @@ void main() {
       await tester.tap(find.text('Eliminar'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Eliminar'));
-      await waitFor(tester, listItem(notebookTitle), present: false);
+      await waitFor(tester, notebookItem(notebookTitle), present: false);
     },
   );
 }

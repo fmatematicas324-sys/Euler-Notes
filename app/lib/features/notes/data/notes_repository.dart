@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
 import '../domain/note.dart';
+import '../domain/paper_style.dart';
 
 class NotesRepository {
   NotesRepository(this._api);
@@ -25,11 +26,18 @@ class NotesRepository {
   Future<Note> get(int id) async =>
       Note.fromJson(await _api.get('/notes/$id') as Map<String, dynamic>);
 
-  Future<Note> update(int id, {String? title, String? content}) async =>
-      Note.fromJson(
-        await _api.put('/notes/$id', {'title': ?title, 'content': ?content})
-            as Map<String, dynamic>,
-      );
+  Future<Note> update(
+    int id, {
+    String? title,
+    String? content,
+    PaperStyle? paper,
+  }) async => Note.fromJson(
+    await _api.put('/notes/$id', {
+      'title': ?title,
+      'content': ?content,
+      'paper': ?paper?.id,
+    }) as Map<String, dynamic>,
+  );
 
   Future<void> delete(int id) => _api.delete('/notes/$id');
 }

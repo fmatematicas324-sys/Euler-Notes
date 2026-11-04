@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/format.dart';
 import '../../../core/widgets/backend_status_icon.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/feedback.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../notes/presentation/notebook_screen.dart';
 import '../domain/notebook.dart';
+import 'notebook_cover_card.dart';
+import 'notebook_dialogs.dart';
 import 'notebooks_controller.dart';
 
-/// Pantalla principal: gestión de cuadernos.
+/// Pantalla principal: estantería de cuadernos con portadas ilustradas.
 class NotebooksScreen extends ConsumerWidget {
   const NotebooksScreen({super.key});
 
@@ -18,49 +19,54 @@ class NotebooksScreen extends ConsumerWidget {
       ref.read(notebooksControllerProvider.notifier);
 
   Future<void> _create(BuildContext context, WidgetRef ref) async {
-    final title = await showTextInputDialog(
-      context,
-      title: 'Nuevo cuaderno',
-      label: 'Título',
-      confirmLabel: 'Crear',
-    );
-    if (title == null || !context.mounted) return;
-    await runGuarded(context, () => _controller(ref).create(title));
+    final result = await showNewNotebookDialog(context);
+    if (result == null || !context.mounted) return;
+    final (title, cover) = result;
+    await runGuarded(context, () => _controller(ref).create(title, cover));
   }
 
-  Future<void> _rename(
+  Future<void> _onAction(
     BuildContext context,
     WidgetRef ref,
     Notebook notebook,
+    NotebookAction action,
   ) async {
-    final title = await showTextInputDialog(
-      context,
-      title: 'Renombrar cuaderno',
-      label: 'Título',
-      initialValue: notebook.title,
-      confirmLabel: 'Guardar',
-    );
-    if (title == null || title == notebook.title || !context.mounted) return;
-    await runGuarded(
-      context,
-      () => _controller(ref).rename(notebook.id, title),
-    );
-  }
-
-  Future<void> _delete(
-    BuildContext context,
-    WidgetRef ref,
-    Notebook notebook,
-  ) async {
-    final confirmed = await showConfirmDialog(
-      context,
-      title: 'Eliminar cuaderno',
-      message:
-          'Se eliminará «${notebook.title}» y todas sus notas. '
-          'Esta acción no se puede deshacer.',
-    );
-    if (!confirmed || !context.mounted) return;
-    await runGuarded(context, () => _controller(ref).delete(notebook.id));
+    switch (action) {
+      case NotebookAction.rename:
+        final title = await showTextInputDialog(
+          context,
+          title: 'Renombrar cuaderno',
+          label: 'Título',
+          initialValue: notebook.title,
+          confirmLabel: 'Guardar',
+        );
+        if (title == null || title == notebook.title || !context.mounted) {
+          return;
+        }
+        await runGuarded(
+          context,
+          () => _controller(ref).edit(notebook.id, title: title),
+        );
+      case NotebookAction.changeCover:
+        final cover = await showCoverPickerDialog(context, notebook.cover);
+        if (cover == null || cover == notebook.cover || !context.mounted) {
+          return;
+        }
+        await runGuarded(
+          context,
+          () => _controller(ref).edit(notebook.id, cover: cover),
+        );
+      case NotebookAction.delete:
+        final confirmed = await showConfirmDialog(
+          context,
+          title: 'Eliminar cuaderno',
+          message:
+              'Se eliminará «${notebook.title}» y todas sus notas. '
+              'Esta acción no se puede deshacer.',
+        );
+        if (!confirmed || !context.mounted) return;
+        await runGuarded(context, () => _controller(ref).delete(notebook.id));
+    }
   }
 
   void _open(BuildContext context, Notebook notebook) {
@@ -101,50 +107,23 @@ class NotebooksScreen extends ConsumerWidget {
                 title: 'Aún no tienes cuadernos',
                 message: 'Crea uno con «Nuevo cuaderno» para empezar.',
               )
-            : ListView.separated(
-                padding: const EdgeInsets.only(bottom: 88),
+            : GridView.builder(
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 104),
+                gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: 200,
+                  mainAxisSpacing: 28,
+                  crossAxisSpacing: 28,
+                  childAspectRatio: 0.66,
+                ),
                 itemCount: items.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
                 itemBuilder: (context, index) {
                   final notebook = items[index];
-                  return ListTile(
-                    leading: const Icon(Icons.menu_book),
-                    title: Text(notebook.title),
-                    subtitle: Text(
-                      'Actualizado ${formatDateTime(notebook.updatedAt)}',
-                    ),
-                    onTap: () => _open(context, notebook),
-                    trailing: PopupMenuButton<_NotebookAction>(
-                      tooltip: 'Opciones',
-                      onSelected: (action) => switch (action) {
-                        _NotebookAction.rename => _rename(
-                          context,
-                          ref,
-                          notebook,
-                        ),
-                        _NotebookAction.delete => _delete(
-                          context,
-                          ref,
-                          notebook,
-                        ),
-                      },
-                      itemBuilder: (_) => const [
-                        PopupMenuItem(
-                          value: _NotebookAction.rename,
-                          child: ListTile(
-                            leading: Icon(Icons.edit),
-                            title: Text('Renombrar'),
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: _NotebookAction.delete,
-                          child: ListTile(
-                            leading: Icon(Icons.delete_outline),
-                            title: Text('Eliminar'),
-                          ),
-                        ),
-                      ],
-                    ),
+                  return NotebookCoverCard(
+                    key: ValueKey(notebook.id),
+                    notebook: notebook,
+                    onOpen: () => _open(context, notebook),
+                    onAction: (action) =>
+                        _onAction(context, ref, notebook, action),
                   );
                 },
               ),
@@ -152,5 +131,3 @@ class NotebooksScreen extends ConsumerWidget {
     );
   }
 }
-
-enum _NotebookAction { rename, delete }

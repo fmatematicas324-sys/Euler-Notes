@@ -1,4 +1,6 @@
+import 'package:cuaderno_cientifico/features/notes/domain/paper_style.dart';
 import 'package:cuaderno_cientifico/features/notes/presentation/note_editor_screen.dart';
+import 'package:cuaderno_cientifico/features/notes/presentation/paper_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +26,8 @@ void main() {
   }
 
   Finder content() => find.byKey(const Key('note-content'));
+  PaperStyle paperOf(WidgetTester tester) =>
+      tester.widget<PaperBackground>(find.byType(PaperBackground).first).style;
   String contentText(WidgetTester tester) =>
       tester.widget<TextField>(content()).controller!.text;
 
@@ -201,6 +205,26 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Vectores'), findsNothing);
     await waitAutosave(tester);
+  });
+
+  testWidgets('cambiar el papel lo guarda y lo dibuja', (tester) async {
+    await openEditor(tester);
+    expect(find.byType(PaperBackground), findsNWidgets(2));
+    expect(paperOf(tester), PaperStyle.blank);
+
+    await tester.tap(find.byTooltip('Papel'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Milimetrado'));
+    await tester.pumpAndSettle();
+
+    expect(backend.notes[noteId]!['paper'], 'grid');
+    expect(paperOf(tester), PaperStyle.grid);
+  });
+
+  testWidgets('la nota se abre con su papel', (tester) async {
+    backend.notes[noteId]!['paper'] = 'semilog';
+    await openEditor(tester);
+    expect(paperOf(tester), PaperStyle.semilog);
   });
 
   testWidgets('panel de cálculo: calcular e insertar como bloque', (

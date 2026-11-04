@@ -1,3 +1,5 @@
+import 'paper_style.dart';
+
 class NoteSummary {
   const NoteSummary({
     required this.id,
@@ -26,6 +28,7 @@ class Note extends NoteSummary {
     required super.title,
     required super.updatedAt,
     required this.content,
+    this.paper = PaperStyle.blank,
   });
 
   factory Note.fromJson(Map<String, dynamic> json) => Note(
@@ -34,8 +37,11 @@ class Note extends NoteSummary {
     title: json['title'] as String,
     updatedAt: DateTime.parse(json['updated_at'] as String),
     content: json['content'] as String,
+    paper: PaperStyle.fromId(json['paper'] as String?),
   );
 
   /// Markdown con fórmulas LaTeX (`$...$` en línea, `$$...$$` en bloque).
   final String content;
+
+  final PaperStyle paper;
 }
