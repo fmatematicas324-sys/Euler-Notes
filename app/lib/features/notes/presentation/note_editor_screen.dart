@@ -9,6 +9,9 @@ import '../../../core/widgets/feedback.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../compute/presentation/compute_panel.dart';
 import '../../plot/domain/diagram_spec.dart';
+import '../../symbols/domain/latex_insertion.dart';
+import '../../symbols/domain/latex_symbol.dart';
+import '../../symbols/presentation/symbol_palette.dart';
 import '../data/notes_repository.dart';
 import 'markdown_preview.dart';
 
@@ -33,6 +36,8 @@ class NoteEditorScreen extends ConsumerStatefulWidget {
 class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   final _title = TextEditingController();
   final _content = TextEditingController();
+  final _contentFocus = FocusNode();
+  bool _showSymbols = false;
 
   bool _loaded = false;
   Object? _loadError;
@@ -57,6 +62,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     _autosave?.cancel();
     _title.dispose();
     _content.dispose();
+    _contentFocus.dispose();
     super.dispose();
   }
 
@@ -185,10 +191,14 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   }
 
   /// Saltos de línea necesarios para que un bloque empiece en línea propia.
-  String _blockPrefix() {
-    final before = _content.text.substring(0, _selection().start);
-    if (before.isEmpty || before.endsWith('\n\n')) return '';
-    return before.endsWith('\n') ? '\n' : '\n\n';
+  String _blockPrefix() => blockPrefixAt(_content.text, _selection().start);
+
+  void _insertSymbol(LatexSymbol symbol) {
+    _content.value = insertLatexSymbol(
+      _content.value.copyWith(selection: _selection()),
+      symbol,
+    );
+    _contentFocus.requestFocus();
   }
 
   void _insertInlineFormula() => _replaceSelection(r'$', r'$');
@@ -304,12 +314,16 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           onBlockFormula: _insertBlockFormula,
           onFigure: _insertFigure,
           onCompute: _openCompute,
+          symbolsVisible: _showSymbols,
+          onToggleSymbols: () => setState(() => _showSymbols = !_showSymbols),
         ),
+        if (_showSymbols) SymbolPalette(onSelected: _insertSymbol),
         const Divider(height: 1),
         Expanded(
           child: TextField(
             key: const Key('note-content'),
             controller: _content,
+            focusNode: _contentFocus,
             expands: true,
             maxLines: null,
             keyboardType: TextInputType.multiline,
@@ -377,6 +391,8 @@ class _EditorToolbar extends StatelessWidget {
     required this.onBlockFormula,
     required this.onFigure,
     required this.onCompute,
+    required this.symbolsVisible,
+    required this.onToggleSymbols,
   });
 
   final VoidCallback onInlineFormula;
@@ -385,6 +401,8 @@ class _EditorToolbar extends StatelessWidget {
   /// `null`: gráfica de función; si no, la plantilla de diagrama elegida.
   final ValueChanged<String?> onFigure;
   final VoidCallback onCompute;
+  final bool symbolsVisible;
+  final VoidCallback onToggleSymbols;
 
   @override
   Widget build(BuildContext context) {
@@ -424,6 +442,15 @@ class _EditorToolbar extends StatelessWidget {
               icon: const Icon(Icons.show_chart),
               label: const Text('Gráfica'),
             ),
+          ),
+          TextButton.icon(
+            onPressed: onToggleSymbols,
+            icon: Icon(
+              symbolsVisible
+                  ? Icons.keyboard_hide
+                  : Icons.keyboard_alt_outlined,
+            ),
+            label: const Text('Símbolos'),
           ),
           FilledButton.tonalIcon(
             onPressed: onCompute,

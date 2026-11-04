@@ -179,6 +179,30 @@ void main() {
     await waitAutosave(tester);
   });
 
+  testWidgets('teclado de símbolos inserta LaTeX en el cursor', (tester) async {
+    await openEditor(tester);
+    final controller = tester.widget<TextField>(content()).controller!;
+    controller.selection = const TextSelection.collapsed(offset: 6);
+
+    await tester.tap(find.text('Símbolos'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Vectores'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('symbol-Divergencia')));
+    await tester.pump();
+
+    expect(contentText(tester), r'Inicio$\nabla \cdot \vec{}$');
+    expect(
+      controller.selection.baseOffset,
+      'Inicio\$\\nabla \\cdot \\vec{'.length,
+    );
+
+    await tester.tap(find.text('Símbolos'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vectores'), findsNothing);
+    await waitAutosave(tester);
+  });
+
   testWidgets('panel de cálculo: calcular e insertar como bloque', (
     tester,
   ) async {
