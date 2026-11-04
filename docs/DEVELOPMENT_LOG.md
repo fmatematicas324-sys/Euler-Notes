@@ -249,3 +249,41 @@ cd app && flutter test integration_test -d linux \
 ### Versión
 - Etiqueta **`v0.2.0`** (anotada) creada el 2026-11-04.
 - El teclado científico aún no se muestra en el panel de cálculo, solo en el editor.
+
+---
+
+## 2026-11-04 — Fase 3 (v0.3): escritura a mano con lápiz y presión
+
+Decisión del usuario: **bloques de dibujo** (` ```ink `) dentro de las notas, frente a una capa sobre la nota o a notas solo a mano.
+
+| Commit | Contenido |
+|---|---|
+| `5cf070a` | Backend: migración 2 (`drawings`) y `/drawings`; versión `0.3.0-dev` |
+| (este) | App: `features/ink` (lienzo, editor, vista previa) e integración con las notas |
+
+### Qué hace
+- Botón **«Dibujo»** en el editor: crea el dibujo, inserta su bloque y abre el lienzo a pantalla completa. Al volver, la vista previa lo muestra y al tocarlo se edita.
+- **Presión:** el grosor varía con la presión de cada punto (0,35× a 1,65× el grosor base). El ratón dibuja con grosor fijo.
+- **Lápiz y dedo:**
+  - El extremo borrador del lápiz borra.
+  - El dedo dibuja por defecto, pero en cuanto se detecta un lápiz deja de hacerlo, con aviso (se puede volver a activar).
+  - Mientras el lápiz está apoyado, y hasta 600 ms después, el dedo nunca dibuja: así se descarta la palma.
+- **Herramientas:** lápiz, resaltador (semitransparente, de un solo trazado), borrador por trazo, 6 colores (el negro se ve claro en tema oscuro), 3 grosores, deshacer y rehacer (Ctrl+Z / Ctrl+Y) y borrar todo.
+- **Guardado:** automático 800 ms después de cada cambio y al salir, en JSON compacto (coordenadas redondeadas a décimas y presión a centésimas).
+
+### Verificación
+| Comprobación | Resultado |
+|---|---|
+| `pytest` | **149 passed** (14 de `/drawings`: CRUD, cascada, validación de trazos y límites) |
+| `flutter analyze` | No issues found |
+| `flutter test` | **220 passed** (14 de tinta: JSON, presión, borrador, deshacer y rehacer, lápiz, dedo, palma, extremo borrador y flujo completo) |
+| Prueba de punta a punta en Linux | **Pasa**: un trazo con el ratón y otro con un lápiz simulado de presión creciente; la captura muestra el trazo engordando y el aviso de rechazo de palma |
+
+### Lecciones
+- Flutter informa `pressureMin = pressureMax = 1` cuando no hay rango. Hubo que distinguir el «sin presión» (valor 1) de un valor real entre 0 y 1.
+- En las pruebas de integración, los eventos de puntero del test deben ir por `tester.sendEventToBinding`. Si se pasan a `handlePointerEvent`, se tratan como del dispositivo real y se ignoran.
+
+### Pendiente
+- Probar con un **lápiz real**: esta máquina no tiene tableta gráfica.
+- Zoom y desplazamiento con dos dedos, y lienzos más altos.
+- Limpiar los dibujos cuyo bloque se borró de la nota.

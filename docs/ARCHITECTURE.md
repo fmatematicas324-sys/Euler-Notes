@@ -69,7 +69,7 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 - Los PDF se guardan en `data/documents/{id}.pdf`, junto a la base de datos.
 - `cover` y `paper` son identificadores (`^[a-z][a-z0-9_]{0,31}$`): el catálogo vive en la app y un valor desconocido se muestra con el valor por defecto.
 
-## 4. Contrato de la API (v0.2)
+## 4. Contrato de la API (v0.3)
 | Método | Ruta | Cuerpo / respuesta |
 |---|---|---|
 | GET | `/notebooks` | → `[Notebook]` |
@@ -91,6 +91,10 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 | GET | `/documents/{id}/file` | → PDF |
 | GET | `/documents/{id}/pages/{n}/text` | → `{page, text, latex}` |
 | DELETE | `/documents/{id}` | → 204 |
+| POST | `/notes/{id}/drawings` | `{width?, height?, strokes?}` → `Drawing` (201) |
+| GET | `/drawings/{id}` | → `Drawing` |
+| PUT | `/drawings/{id}` | `{width?, height?, strokes?}` → `Drawing` |
+| DELETE | `/drawings/{id}` | → 204 |
 | GET | `/health` | → `{status: "ok", version}` |
 
 - `op` ∈ `simplify | diff | integrate | solve`. `var` es opcional (por defecto `x`).
@@ -130,6 +134,11 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 - **Teclado de símbolos** (`features/symbols`): catálogo de LaTeX con marca de cursor (`‸`). Fuera de una fórmula se envuelve en `$…$`, o en `$$…$$` para las matrices.
 - **PDF** (`features/documents`): biblioteca en una hoja inferior y visor pdfrx con el texto de la página («Texto» → cita con la fuente; «LaTeX» → fórmula). El selector de archivos y el visor se inyectan por providers para poder probarlos sin pdfium.
 - **Estantería:** cuadrícula de `NotebookCoverCard` (portada, lomo, etiqueta y repisa) con 8 portadas `CustomPainter`.
+- **Escritura a mano** (`features/ink`): bloque ` ```ink\nid: N\n``` ` en la nota; `InkPreview` lo dibuja y al tocarlo abre `InkEditorScreen`.
+  - `InkCanvas` recibe eventos crudos (`Listener`) y trabaja en unidades del lienzo (1000×700 por defecto), así el dibujo se escala a cualquier pantalla.
+  - Presión: `normalizedPressure` normaliza al rango del dispositivo. Sin rango, el valor 1 equivale a «sin presión» (0,5). El grosor va de 0,35× a 1,65× el base.
+  - Entrada: el lápiz dibuja y su extremo borrador borra. El dedo solo dibuja si se permite y nunca durante el lápiz ni hasta 600 ms después.
+  - `InkDocument` guarda los trazos con deshacer y rehacer. Los terminados se graban en un `ui.Picture` que solo se regenera cuando cambian.
 - **Papel:** `PaperBackground` detrás del editor (renglonado alineado a su altura de línea) y de la vista previa. El milimetrado usa 1 mm ≈ 3,78 px lógicos.
 
 ## 7. Dependencias
@@ -155,4 +164,5 @@ Descartados a propósito en v0.1: ORM, router de navegación, Docker y generaci�
 | 4 | Riverpod para el estado | Estándar, testeable, sin generación de código. |
 | 6 | Los PDF se analizan en el subproceso aislado | Son archivos no confiables: pypdf puede tardar o consumir mucha memoria con PDF malformados. |
 | 7 | Portadas, papel e icono dibujados con `CustomPainter` | No hacen falta imágenes ni derechos de terceros; escalan a cualquier densidad y siguen el tema claro u oscuro. |
+| 8 | Escritura a mano como bloques ` ```ink ` (no como capa sobre la nota) | La capa se descolocaría al reorganizarse el texto en otros anchos de pantalla. El bloque encaja con el Markdown y con la vista previa. |
 | 5 | Gráficas renderizadas en el backend (matplotlib → PNG), no en Flutter | Reutiliza la evaluación segura de SymPy y la calidad de matplotlib; el cliente solo muestra una imagen. A cambio, hace falta el backend (ver la decisión pendiente sobre Android en el ROADMAP). |

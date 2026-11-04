@@ -55,13 +55,18 @@ Objetivo: visualizar y consultar material científico dentro del cuaderno, con u
 **Salida:** ✅ cumplida en Linux y Web. Etiquetada como `v0.2.0`.
 
 ## Fase 3 — v0.3 Escritura a mano (lápiz/stylus)
-- [ ] Lienzo de escritura con `CustomPainter` y `Listener`: trazos suavizados y grosor según la **presión** (`PointerEvent.pressure`).
-- [ ] Distinguir el lápiz (`PointerDeviceKind.stylus`) del dedo: el dedo hace scroll o zoom y el lápiz dibuja. Esto sirve también para ignorar la palma de la mano.
-- [ ] Herramientas básicas: lápiz, borrador por trazo, deshacer y rehacer, colores y grosores.
-- [ ] Persistencia de los trazos: modelo `Stroke` (puntos, presión, color, grosor) guardado como bloque de la nota, y endpoint en el backend.
-- [ ] Rendimiento: capas de trazos terminados guardadas en caché (`Picture`) para mantener 60 fps con cientos de trazos.
+Modelo elegido: **bloques de dibujo** (` ```ink `) dentro de las notas.
 
-**Salida:** tomar notas a mano en un cuaderno, con presión, en una tablet con lápiz. Se etiqueta `v0.3.0`.
+- [x] Lienzo con `Listener` y `CustomPainter`: grosor según la **presión** (normalizada al rango de cada dispositivo).
+- [x] El lápiz dibuja y su extremo borrador borra. El dedo no dibuja mientras el lápiz está apoyado ni justo después (rechazo de la palma), y deja de dibujar al detectar un lápiz.
+- [x] Herramientas: lápiz, resaltador, borrador por trazo, 6 colores, 3 grosores, deshacer y rehacer, borrar todo.
+- [x] Persistencia: tabla `drawings` (migración 2) y `/drawings`. Los puntos se guardan como lista plana `[x, y, presión]`.
+- [x] Rendimiento: los trazos terminados se guardan en un `Picture`, así que solo se repinta el trazo en curso.
+- [ ] Zoom y desplazamiento del lienzo con dos dedos, y lienzo más alto o páginas.
+- [ ] Probar con un lápiz real en una tablet: en el desarrollo se simula el lápiz con eventos de presión.
+- [ ] Limpiar los dibujos huérfanos (bloque borrado de la nota).
+
+**Salida:** tomar notas a mano en un cuaderno, con presión. Se etiqueta `v0.3.0` tras probar con un lápiz real (o al cerrar la fase).
 
 ## Fase 4 — v0.4 APK para tablet Android
 - [x] ~~Teclado de símbolos científicos~~: adelantado a la v0.2. Pendiente aquí: adaptarlo a pantalla táctil y como teclado del panel de cálculo.
