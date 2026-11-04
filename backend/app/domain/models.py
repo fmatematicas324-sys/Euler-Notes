@@ -185,3 +185,75 @@ DiagramRequest = Annotated[
     FunctionDiagram | ForcesDiagram | ProjectileDiagram | GraphDiagram,
     Field(discriminator="kind"),
 ]
+
+
+# --- Dibujos a mano ------------------------------------------------------------
+
+MAX_STROKES = 3000
+MAX_POINTS_PER_STROKE = 6000
+MAX_TOTAL_POINTS = 250_000
+
+HexColor = Annotated[str, StringConstraints(pattern=r"^#[0-9a-fA-F]{6}$")]
+CanvasSize = Annotated[float, Field(ge=100, le=10_000, allow_inf_nan=False)]
+
+
+class Stroke(BaseModel):
+    """Trazo: `points` es una lista plana `[x0, y0, p0, x1, y1, p1, ...]` con la
+    posición en unidades del lienzo y la presión normalizada (0–1)."""
+
+    tool: Literal["pen", "highlighter"] = "pen"
+    color: HexColor = "#1B1F24"
+    width: Annotated[float, Field(ge=0.5, le=60, allow_inf_nan=False)] = 3.0
+    points: Annotated[
+        list[Annotated[float, Field(allow_inf_nan=False)]],
+        Field(min_length=3, max_length=MAX_POINTS_PER_STROKE * 3),
+    ]
+
+    @model_validator(mode="after")
+    def _check_points(self) -> "Stroke":
+        if len(self.points) % 3:
+            raise ValueError("points debe tener tripletas [x, y, presión]")
+        if any(not 0 <= p <= 1 for p in self.points[2::3]):
+            raise ValueError("la presión debe estar entre 0 y 1")
+        return self
+
+
+Strokes = Annotated[list[Stroke], Field(max_length=MAX_STROKES)]
+
+
+def _check_total_points(strokes: list[Stroke]) -> None:
+    if sum(len(s.points) for s in strokes) // 3 > MAX_TOTAL_POINTS:
+        raise ValueError(f"El dibujo supera {MAX_TOTAL_POINTS} puntos")
+
+
+class DrawingCreate(BaseModel):
+    width: CanvasSize = 1000.0
+    height: CanvasSize = 700.0
+    strokes: Strokes = []
+
+    @model_validator(mode="after")
+    def _check_size(self) -> "DrawingCreate":
+        _check_total_points(self.strokes)
+        return self
+
+
+class DrawingUpdate(BaseModel):
+    width: CanvasSize | None = None
+    height: CanvasSize | None = None
+    strokes: Strokes | None = None
+
+    @model_validator(mode="after")
+    def _check_size(self) -> "DrawingUpdate":
+        if self.strokes is not None:
+            _check_total_points(self.strokes)
+        return self
+
+
+class Drawing(BaseModel):
+    id: int
+    note_id: int
+    width: float
+    height: float
+    strokes: list[Stroke]
+    created_at: str
+    updated_at: str

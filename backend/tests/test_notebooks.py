@@ -116,7 +116,9 @@ def test_migrates_v01_database(tmp_path, monkeypatch) -> None:
         assert client.get("/documents").json() == []
 
     with sqlite3.connect(db_path) as conn:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        from app.storage.db import _MIGRATIONS
+
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == len(_MIGRATIONS)
     conn.close()
     with TestClient(create_app()) as client:  # segunda vez: no repite migraciones
         assert client.get("/notebooks").status_code == 200

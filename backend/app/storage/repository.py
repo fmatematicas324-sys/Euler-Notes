@@ -1,8 +1,9 @@
 """Acceso a datos de cuadernos y notas. Funciones puras sobre una conexión."""
 
+import json
 import sqlite3
 
-from app.domain.models import Document, Note, Notebook, NoteSummary
+from app.domain.models import Document, Drawing, Note, Notebook, NoteSummary, Stroke
 from app.storage.db import now_iso
 
 _NOTE_SUMMARY_COLS = "id, notebook_id, title, paper, created_at, updated_at"
@@ -135,3 +136,60 @@ def create_document(conn: sqlite3.Connection, filename: str, size: int, pages: i
 
 def delete_document(conn: sqlite3.Connection, document_id: int) -> bool:
     return conn.execute("DELETE FROM documents WHERE id = ?", (document_id,)).rowcount > 0
+
+
+# --- Dibujos ------------------------------------------------------------------
+
+
+def _drawing(row: sqlite3.Row) -> Drawing:
+    data = dict(row)
+    data["strokes"] = json.loads(data["strokes"])
+    return Drawing(**data)
+
+
+def _dump(strokes: list[Stroke]) -> str:
+    return json.dumps([s.model_dump() for s in strokes], separators=(",", ":"))
+
+
+def get_drawing(conn: sqlite3.Connection, drawing_id: int) -> Drawing | None:
+    row = conn.execute("SELECT * FROM drawings WHERE id = ?", (drawing_id,)).fetchone()
+    return _drawing(row) if row else None
+
+
+def create_drawing(
+    conn: sqlite3.Connection, note_id: int, width: float, height: float, strokes: list[Stroke]
+) -> Drawing:
+    ts = now_iso()
+    cur = conn.execute(
+        "INSERT INTO drawings (note_id, width, height, strokes, created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (note_id, width, height, _dump(strokes), ts, ts),
+    )
+    return get_drawing(conn, cur.lastrowid)  # type: ignore[return-value]
+
+
+def update_drawing(
+    conn: sqlite3.Connection,
+    drawing_id: int,
+    width: float | None,
+    height: float | None,
+    strokes: list[Stroke] | None,
+) -> Drawing | None:
+    current = get_drawing(conn, drawing_id)
+    if current is None:
+        return None
+    conn.execute(
+        "UPDATE drawings SET width = ?, height = ?, strokes = ?, updated_at = ? WHERE id = ?",
+        (
+            width if width is not None else current.width,
+            height if height is not None else current.height,
+            _dump(strokes if strokes is not None else current.strokes),
+            now_iso(),
+            drawing_id,
+        ),
+    )
+    return get_drawing(conn, drawing_id)
+
+
+def delete_drawing(conn: sqlite3.Connection, drawing_id: int) -> bool:
+    return conn.execute("DELETE FROM drawings WHERE id = ?", (drawing_id,)).rowcount > 0

@@ -57,7 +57,13 @@ void main() {
     try {
       final title = 'Web ${DateTime.now().millisecondsSinceEpoch}';
       await tester.pumpWidget(const ProviderScope(child: CuadernoApp()));
-      await waitFor(tester, find.byTooltip('Backend conectado (v0.1.0)'));
+      await waitFor(
+        tester,
+        find.byWidgetPredicate(
+          (w) =>
+              w is Tooltip && (w.message ?? '').startsWith('Backend conectado'),
+        ),
+      );
 
       // Cuaderno y nota.
       step('crear cuaderno y nota');

@@ -131,7 +131,13 @@ void main() {
           ),
         ),
       );
-      await waitFor(tester, find.byTooltip('Backend conectado (v0.1.0)'));
+      await waitFor(
+        tester,
+        find.byWidgetPredicate(
+          (w) =>
+              w is Tooltip && (w.message ?? '').startsWith('Backend conectado'),
+        ),
+      );
       await screenshot(tester, '01_inicio');
 
       // 1. Crear cuaderno.

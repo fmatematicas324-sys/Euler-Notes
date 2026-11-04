@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-VERSION = "0.1.0"
+VERSION = "0.3.0-dev"
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 _DEFAULT_DB_PATH = _BACKEND_DIR / "data" / "cuaderno.db"
