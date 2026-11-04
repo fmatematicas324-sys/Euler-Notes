@@ -246,6 +246,6 @@ cd app && flutter test integration_test -d linux \
     --dart-define=PDF_NAME=muestra-web.pdf
   ```
 
-### Pendiente
-- Etiquetar `v0.2.0`.
+### Versión
+- Etiqueta **`v0.2.0`** (anotada) creada el 2026-11-04.
 - El teclado científico aún no se muestra en el panel de cálculo, solo en el editor.

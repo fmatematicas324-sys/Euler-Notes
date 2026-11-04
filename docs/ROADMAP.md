@@ -52,7 +52,7 @@ Objetivo: visualizar y consultar material científico dentro del cuaderno, con u
 - [x] Papel por nota: blanco, renglonado, milimetrado, punteado y semilogarítmico.
 - [x] Icono propio para Web (favicon y PWA) y para la ventana de Linux.
 
-**Salida:** ✅ cumplida en Linux y Web. Pendiente de etiquetar `v0.2.0`.
+**Salida:** ✅ cumplida en Linux y Web. Etiquetada como `v0.2.0`.
 
 ## Fase 3 — v0.3 Escritura a mano (lápiz/stylus)
 - [ ] Lienzo de escritura con `CustomPainter` y `Listener`: trazos suavizados y grosor según la **presión** (`PointerEvent.pressure`).
