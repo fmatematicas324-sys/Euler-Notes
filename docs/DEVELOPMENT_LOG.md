@@ -139,3 +139,48 @@ flutter test integration_test -d linux --dart-define=API_BASE_URL=http://127.0.0
 ### Siguiente (Fase 2, v0.2)
 - Gráficas 2D de funciones, exportar a Markdown y PDF, búsqueda en notas.
 - Pendientes menores de v0.1: probar el flujo en Chrome con `chromedriver` y etiquetar `v0.1.0`.
+
+---
+
+## 2026-11-03 — Fase 2 (v0.2), parte 1: gráficas 2D ✅
+
+| Commit | Contenido |
+|---|---|
+| `f7d61a1` | ROADMAP: v0.2 (gráficas + PDF), v0.3 (stylus con presión) y v0.4 (teclado científico + APK para tablet), orientadas a Android, más la decisión pendiente sobre el backend en Android |
+| `43bde6c` | Backend: `POST /plot` (SymPy + matplotlib), `sandbox.py` y precarga del forkserver |
+| `cd8505e` | App: `features/plot` (`PlotSpec`, `PlotRepository`, `PlotView`), bloques ` ```plot ` y botón «Gráfica» |
+
+### Backend `/plot`
+- Cuerpo: `exprs` (1–5), `var`, `x_min`/`x_max`, `y_min`/`y_max` opcionales (automáticos por percentiles 2–98 si se omiten), `theme` (`light`/`dark`), `width`/`height` en px lógicos y `scale` (1–3). Devuelve un **PNG transparente**.
+- Seguridad: la misma validación que `/compute`. Cada expresión solo puede depender de la variable (`a*x` → 400 indicando qué sobra). Se ejecuta en el subproceso aislado (5 s, 1 GiB).
+- Calidad: corta las asíntotas (`tan`, `1/x`), descarta valores complejos (`sqrt(x)`, `ln(x)`), muestra la leyenda en LaTeX (`\dfrac`, y texto plano si mathtext no puede) y usa una paleta distinta para tema claro y oscuro. `factorial` y otras funciones sin versión numpy se evalúan con mpmath.
+- Dependencias nuevas: **matplotlib 3.11 + numpy 2.5** (unos 80 MB en el venv).
+
+### Rendimiento del subproceso aislado (`sandbox.py`)
+- Generalizado para `/compute` y `/plot`. El forkserver precarga SymPy, numpy y matplotlib, y **dibuja una gráfica de calentamiento**: la primera gráfica de cada proceso costaba unos 1,3 s y ahora unos 0,4 s.
+- Se precarga también `__main__`. Antes, **cada subproceso volvía a ejecutar el script principal** (pytest o uvicorn), con un coste aproximado de 0,5–0,8 s por petición. La suite del backend bajó de 37 s a 17 s.
+- `OPENBLAS_NUM_THREADS=1` para que el límite de memoria `RLIMIT_AS` no choque con los hilos de BLAS.
+- El forkserver arranca en un hilo en segundo plano al iniciar el servidor (unos 3–4 s), para que la primera petición no espere.
+
+### App
+- **Bloque ` ```plot `** en las notas: una expresión por línea, con opciones `x: -2pi, 2pi`, `y: -1, 1` y `var: t`. Si el bloque no es válido, se explica en la vista previa (p. ej. «Rango de x: el mínimo debe ser menor»).
+- **`PlotView`**: pide la imagen con el ancho disponible (en saltos de 50 px), el tema y la densidad de píxeles. Espera 400 ms mientras se escribe, mantiene visible la imagen anterior, muestra una barra de progreso y ofrece «Reintentar» en los errores. Guarda en caché las últimas 32 gráficas.
+- Botón **«Gráfica»** en el editor: inserta un bloque de ejemplo, o uno con la expresión seleccionada.
+
+### Verificación
+| Comprobación | Resultado |
+|---|---|
+| `pytest` (backend) | **85 passed** (31 de `/plot`: variantes, seguridad, validación, sin valores reales, timeout) |
+| `flutter analyze` | No issues found |
+| `flutter test` | **50 passed** |
+| Prueba de punta a punta en Linux (con gráfica real) | **3 de 3 ejecuciones seguidas pasan** |
+| Revisión visual | Gráficas clara y oscura (asíntotas cortadas, semicircunferencia, leyenda LaTeX) y gráfica dentro del editor con tema oscuro |
+
+### Incidencias
+- **Prueba de punta a punta intermitente (corregida):** `find.text(título)` encontraba el título dentro del `TextField` del diálogo y no en la lista. Ahora busca `ListTile`.
+- **Timeout de `/plot` con la máquina cargada:** con 2 núcleos, el navegador ocupando ~40 % de CPU y la compilación de Flutter, una gráfica superó los 5 s (408). Se añadió «Reintentar» en `PlotView`, y la prueba de punta a punta se ejecuta con `CUADERNO_COMPUTE_TIMEOUT=15`, porque verifica el flujo y no el rendimiento. El límite de 5 s del producto no cambia.
+- **Al reiniciar el backend**, uvicorn esperaba indefinidamente a que se cerraran las conexiones abiertas por la pestaña de Chromium. Usar `--timeout-graceful-shutdown 3` en desarrollo.
+
+### Pendiente en la v0.2
+- Visor de PDF con extracción de texto. Antes hay que decidir las dependencias (`pypdf` en el backend; visor en Flutter, p. ej. `pdfrx`).
+- Opcional: «Insertar gráfica» desde el panel de cálculo, con la expresión o su resultado.

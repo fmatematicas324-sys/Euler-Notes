@@ -32,9 +32,9 @@
 Objetivo: visualizar funciones y consultar material en PDF dentro del cuaderno. A partir de esta versión, las fases se orientan a **tablet Android**.
 
 ### Gráficas
-- [ ] Backend: `POST /plot` (SymPy + matplotlib) que devuelve un PNG. Admite hasta 5 expresiones, rango de la variable, rango de `y` opcional (automático si se omite), tema claro u oscuro, tamaño y escala de píxeles. Se ejecuta en el mismo subproceso aislado (con límites de tiempo y memoria) que `/compute`.
-- [ ] Flutter: widget `PlotView` (carga con espera, caché, error, tema y densidad de píxeles del dispositivo).
-- [ ] Notas: bloques ` ```plot ` en Markdown que se muestran como gráficas en la vista previa, y botón «Gráfica» en el editor.
+- [x] Backend: `POST /plot` (SymPy + matplotlib) que devuelve un PNG. Admite hasta 5 expresiones, rango de la variable, rango de `y` opcional (automático si se omite), tema claro u oscuro, tamaño y escala de píxeles. Se ejecuta en el mismo subproceso aislado (con límites de tiempo y memoria) que `/compute`.
+- [x] Flutter: widget `PlotView` (carga con espera, caché, error, tema y densidad de píxeles del dispositivo).
+- [x] Notas: bloques ` ```plot ` en Markdown que se muestran como gráficas en la vista previa, y botón «Gráfica» en el editor.
 
 ### Visor de PDF
 - [ ] Backend: subida de PDF asociada a una nota y `POST /pdf/extract` (texto por página).

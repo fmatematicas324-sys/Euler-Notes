@@ -11,7 +11,7 @@ Son dos procesos locales: no hay microservicios ni infraestructura externa.
 │  Web · Linux (· Mobile)  │ ─────────────▶ │                              │
 │                          │ ◀───────────── │  api → services → storage    │
 │  UI, Markdown, LaTeX     │                │            │          │      │
-└──────────────────────────┘                │         SymPy     SQLite     │
+└──────────────────────────┘                │  SymPy+matplotlib  SQLite    │
                                             └──────────────────────────────┘
 ```
 
@@ -38,7 +38,7 @@ CUADERNO_CIENTIFICO/
     │   ├── main.py           # crea la app FastAPI, CORS, routers
     │   ├── api/              # routers HTTP (sin lógica de negocio)
     │   ├── domain/           # modelos Pydantic (entrada/salida)
-    │   ├── services/         # lógica de negocio + motor SymPy
+    │   ├── services/         # motor SymPy, gráficas, sandbox (subproceso aislado)
     │   └── storage/          # repositorios SQLite (sqlite3 de la stdlib)
     └── tests/
 ```
@@ -81,6 +81,7 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 | PUT | `/notes/{id}` | `{title?, content?}` → `Note` |
 | DELETE | `/notes/{id}` | → 204 |
 | POST | `/compute` | `{expr, op, var?}` → `{result_latex, result_text}` |
+| POST | `/plot` | `{exprs[1..5], var?, x_min?, x_max?, y_min?, y_max?, theme?, width?, height?, scale?}` → PNG transparente (`image/png`) |
 | GET | `/health` | → `{status: "ok", version}` |
 
 - `op` ∈ `simplify | diff | integrate | solve`. `var` es opcional (por defecto `x`).
@@ -101,7 +102,8 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
   - `global_dict` limitado a una **lista blanca** de símbolos y funciones (`sin, cos, tan, exp, log, sqrt, pi, E, Abs, ...`);
   - `local_dict` vacío y transformaciones estándar (más multiplicación implícita).
 - Se rechaza antes de interpretar: longitud > 500 caracteres, `__`, `import`, `lambda`, `;`, corchetes de indexación y atributos (`.`) que no formen parte de un número.
-- **Tiempo máximo de 5 s** por operación (`CUADERNO_COMPUTE_TIMEOUT`): el cálculo corre en un subproceso `forkserver` con SymPy precargado y **1 GiB** de memoria máxima (`RLIMIT_AS`); si se pasa del tiempo se mata (error 408).
+- **Tiempo máximo de 5 s** por operación (`CUADERNO_COMPUTE_TIMEOUT`). `/compute` y `/plot` se ejecutan en `services/sandbox.py`: un subproceso nacido de un `forkserver` con SymPy, numpy y matplotlib precargados (y con matplotlib ya calentado), con **1 GiB** de memoria máxima (`RLIMIT_AS`). Si se pasa del tiempo se mata (error 408). El forkserver arranca en segundo plano al iniciar el servidor (unos 3–4 s).
+- `/plot` valida cada expresión igual que `/compute`, exige que solo dependa de la variable y evalúa con `lambdify` sobre numpy (o punto a punto con mpmath cuando no hay versión vectorizada). Corta las asíntotas, se queda solo con los valores reales y, si no se indica el rango de `y`, lo calcula por percentiles. Usa `Figure` + Agg, sin `pyplot` ni estado global.
 - Los nombres desconocidos (p. ej. `eval`, `system`) se convierten en símbolos inertes de SymPy; nunca se resuelven a funciones de Python.
 - CORS: solo orígenes `http://localhost:*` y `http://127.0.0.1:*`. El servidor escucha solo en `127.0.0.1`.
 
@@ -114,9 +116,10 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
   - `MathBlockSyntax`: `$$...$$` en una línea propia o en varias; se muestra como bloque centrado.
 - **LaTeX:** `flutter_math_fork` mediante `core/widgets/math_formula.dart`. Si una fórmula es inválida, se muestra el texto fuente en rojo y la app no se cae.
 - **Cálculo:** `ComputePanel` en un *bottom sheet*. Inserta el resultado en el cursor como `$...$` o como bloque `$$...$$` en una línea propia.
+- **Gráficas:** un bloque ` ```plot ` (una expresión por línea; opciones `x: -2pi, 2pi`, `y: a, b` y `var: t`) se muestra con `PlotView` (`features/plot`). `PlotView` pide el PNG con el ancho disponible (en saltos de 50 px), el tema y la densidad de píxeles; espera 400 ms mientras se escribe, mantiene la imagen anterior y ofrece «Reintentar» si falla. `PlotRepository` guarda en caché las últimas 32 imágenes.
 
-## 7. Dependencias mínimas v0.1
-**Backend:** `fastapi`, `uvicorn`, `sympy` · *dev:* `pytest`, `httpx`, `ruff`.
+## 7. Dependencias
+**Backend:** `fastapi`, `uvicorn`, `sympy`, `matplotlib` + `numpy` (v0.2, gráficas) · *dev:* `pytest`, `httpx`, `ruff`.
 **App:** `flutter_riverpod`, `http`, `flutter_markdown_plus`, `flutter_math_fork` · *dev:* `flutter_lints`, `flutter_test`.
 
 Descartados a propósito en v0.1: ORM, router de navegación, Docker y generación de código (freezed/json_serializable).
@@ -135,3 +138,4 @@ Descartados a propósito en v0.1: ORM, router de navegación, Docker y generaci�
 | 2 | SQLite con `sqlite3` de la stdlib, sin ORM | Modelo de 2 tablas; un ORM no compensa. |
 | 3 | REST/JSON en lugar de FFI o Python embebido | Funciona igual en Web y Linux, y se puede depurar con `/docs`. |
 | 4 | Riverpod para el estado | Estándar, testeable, sin generación de código. |
+| 5 | Gráficas renderizadas en el backend (matplotlib → PNG), no en Flutter | Reutiliza la evaluación segura de SymPy y la calidad de matplotlib; el cliente solo muestra una imagen. A cambio, hace falta el backend (ver la decisión pendiente sobre Android en el ROADMAP). |
