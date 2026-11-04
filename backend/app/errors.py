@@ -39,6 +39,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def _validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
         first = exc.errors()[0] if exc.errors() else {}
         field = ".".join(str(part) for part in first.get("loc", ())[1:])
+        first = {**first, "msg": str(first.get("msg", "")).removeprefix("Value error, ")}
         message = (
             f"{field}: {first.get('msg', 'entrada inválida')}"
             if field

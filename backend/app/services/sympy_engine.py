@@ -52,7 +52,11 @@ _RESERVED = {"True", "False", "None"}
 
 
 class ExpressionError(ValueError):
-    """La expresión no es válida o no está permitida (error del usuario)."""
+    """La expresión no es válida o no está permitida (error del usuario, HTTP 400)."""
+
+
+class ComputeFailure(Exception):
+    """La entrada es válida pero no se puede calcular; el mensaje es para el usuario (HTTP 422)."""
 
 
 @dataclass(frozen=True)
@@ -85,7 +89,8 @@ def validate(expr: str, op: str) -> None:
         raise ExpressionError("Una ecuación solo puede tener un signo '='")
 
 
-def _parse(text: str) -> sp.Basic:
+def parse(text: str) -> sp.Basic:
+    """Interpreta texto ya validado con `validate`. Lanza ExpressionError."""
     global_dict = {"__builtins__": {}, **_SAFE_GLOBALS}
     try:
         parsed = parse_expr(
@@ -107,10 +112,10 @@ def evaluate(expr: str, op: str, var: str = "x") -> ComputeResult:
 
     if op == "solve":
         lhs, _, rhs = expr.partition("=")
-        target = _parse(lhs) - _parse(rhs) if rhs.strip() else _parse(lhs)
+        target = parse(lhs) - parse(rhs) if rhs.strip() else parse(lhs)
         result: object = sp.solve(target, symbol)
     else:
-        parsed = _parse(expr)
+        parsed = parse(expr)
         if op == "simplify":
             result = sp.simplify(parsed)
         elif op == "diff":
