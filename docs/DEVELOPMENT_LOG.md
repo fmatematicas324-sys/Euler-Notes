@@ -259,7 +259,7 @@ Decisión del usuario: **bloques de dibujo** (` ```ink `) dentro de las notas, f
 | Commit | Contenido |
 |---|---|
 | `5cf070a` | Backend: migración 2 (`drawings`) y `/drawings`; versión `0.3.0-dev` |
-| (este) | App: `features/ink` (lienzo, editor, vista previa) e integración con las notas |
+| `daa4fe1` | App: `features/ink` (lienzo, editor, vista previa) e integración con las notas |
 
 ### Qué hace
 - Botón **«Dibujo»** en el editor: crea el dibujo, inserta su bloque y abre el lienzo a pantalla completa. Al volver, la vista previa lo muestra y al tocarlo se edita.
