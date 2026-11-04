@@ -92,6 +92,7 @@ class FakeBackend {
   final documents = <int, Map<String, dynamic>>{};
   final documentFiles = <int, List<int>>{};
   final pageTextRequests = <int>[];
+  final drawings = <int, Map<String, dynamic>>{};
 
   /// Si no es `null`, la subida de PDF falla con este (status, código, mensaje).
   (int, String, String)? uploadError;
@@ -255,6 +256,29 @@ class FakeBackend {
         return documents.remove(int.parse(id)) == null
             ? _notFound()
             : http.Response('', 204);
+      case ('POST', ['notes', final id, 'drawings']):
+        if (!notes.containsKey(int.parse(id))) return _notFound();
+        final drawingId = _nextId++;
+        drawings[drawingId] = {
+          'id': drawingId,
+          'note_id': int.parse(id),
+          'width': 1000.0,
+          'height': 700.0,
+          'strokes': <Object>[],
+          'created_at': _now(),
+          'updated_at': _now(),
+        };
+        return _json(drawings[drawingId]!, 201);
+      case ('GET', ['drawings', final id]):
+        final drawing = drawings[int.parse(id)];
+        return drawing == null ? _notFound() : _json(drawing);
+      case ('PUT', ['drawings', final id]):
+        final drawing = drawings[int.parse(id)];
+        if (drawing == null) return _notFound();
+        drawing
+          ..addAll(body)
+          ..['updated_at'] = _now();
+        return _json(drawing);
       case ('POST', ['compute']):
         computeRequests.add(body);
         final (status, response) = onCompute(body);

@@ -9,6 +9,8 @@ import '../../../core/widgets/feedback.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../compute/presentation/compute_panel.dart';
 import '../../documents/domain/library_document.dart';
+import '../../ink/data/drawings_repository.dart';
+import '../../ink/presentation/ink_editor_screen.dart';
 import '../../documents/presentation/document_library_sheet.dart';
 import '../../documents/presentation/document_viewer_screen.dart';
 import '../../plot/domain/diagram_spec.dart';
@@ -255,6 +257,23 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     if (!ok && mounted) setState(() => _paper = previous);
   }
 
+  /// Crea un dibujo, inserta su bloque ```ink y abre el lienzo.
+  Future<void> _insertDrawing() async {
+    final repository = ref.read(drawingsRepositoryProvider);
+    int? drawingId;
+    final ok = await runGuarded(context, () async {
+      drawingId = (await repository.create(widget.noteId)).id;
+    });
+    if (!ok || drawingId == null || !mounted) return;
+    _insertBlock('```ink\nid: $drawingId\n```');
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InkEditorScreen(drawingId: drawingId!, paper: _paper),
+      ),
+    );
+    ref.invalidate(drawingProvider(drawingId!));
+  }
+
   Future<void> _openDocuments() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -375,6 +394,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           onFigure: _insertFigure,
           onCompute: _openCompute,
           onDocuments: _openDocuments,
+          onDrawing: _insertDrawing,
           symbolsVisible: _showSymbols,
           onToggleSymbols: () => setState(() => _showSymbols = !_showSymbols),
         ),
@@ -463,6 +483,7 @@ class _EditorToolbar extends StatelessWidget {
     required this.onFigure,
     required this.onCompute,
     required this.onDocuments,
+    required this.onDrawing,
     required this.symbolsVisible,
     required this.onToggleSymbols,
   });
@@ -474,6 +495,7 @@ class _EditorToolbar extends StatelessWidget {
   final ValueChanged<String?> onFigure;
   final VoidCallback onCompute;
   final VoidCallback onDocuments;
+  final VoidCallback onDrawing;
   final bool symbolsVisible;
   final VoidCallback onToggleSymbols;
 
@@ -524,6 +546,11 @@ class _EditorToolbar extends StatelessWidget {
                   : Icons.keyboard_alt_outlined,
             ),
             label: const Text('Símbolos'),
+          ),
+          TextButton.icon(
+            onPressed: onDrawing,
+            icon: const Icon(Icons.draw_outlined),
+            label: const Text('Dibujo'),
           ),
           TextButton.icon(
             onPressed: onDocuments,

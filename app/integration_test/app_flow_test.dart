@@ -9,13 +9,17 @@
 //       [--dart-define=SCREENSHOT_DIR=/ruta/capturas] \
 //       [--dart-define=SAMPLE_PDF=/ruta/a/un.pdf]   (activa los pasos de PDF)
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:cuaderno_cientifico/app.dart';
 import 'package:cuaderno_cientifico/features/documents/data/documents_repository.dart';
+import 'package:cuaderno_cientifico/features/ink/presentation/ink_canvas.dart';
+import 'package:cuaderno_cientifico/features/ink/presentation/ink_preview.dart';
 import 'package:cuaderno_cientifico/features/notebooks/presentation/notebook_cover_card.dart';
 import 'package:cuaderno_cientifico/features/notes/presentation/markdown_preview.dart';
 import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -83,6 +87,25 @@ void main() {
   Finder listItem(String title) => find.widgetWithText(ListTile, title);
   Finder notebookItem(String title) =>
       find.widgetWithText(NotebookCoverCard, title);
+
+  /// Desplaza la vista previa hasta que [target] exista (lo que no se ve no
+  /// se construye).
+  Future<void> scrollPreviewTo(WidgetTester tester, Finder target) async {
+    final preview = find.descendant(
+      of: find.byType(MarkdownPreview),
+      matching: find.byType(Scrollable),
+    );
+    final deadline = DateTime.now().add(const Duration(seconds: 30));
+    while (target.evaluate().isEmpty) {
+      if (DateTime.now().isAfter(deadline)) {
+        throw TestFailure('No apareció en la vista previa: $target');
+      }
+      await tester.drag(preview.first, const Offset(0, -250));
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.ensureVisible(target.first);
+    await tester.pumpAndSettle();
+  }
 
   /// Imagen ya cargada de la figura número [index] de la vista previa,
   /// desplazando la vista previa hasta ella (las que no se ven no se construyen).
@@ -210,6 +233,60 @@ void main() {
         await tester.pageBack();
         await tester.pumpAndSettle();
       }
+      // 8. Dibujo a mano: un trazo con el ratón y otro con un lápiz simulado
+      // cuya presión crece (el trazo debe engordar).
+      await tester.tap(find.text('Dibujo'));
+      await waitFor(tester, find.byType(InkCanvas));
+      final canvas = tester.getRect(find.byType(InkCanvas));
+      final mouse = await tester.startGesture(
+        canvas.topLeft + const Offset(60, 120),
+        kind: PointerDeviceKind.mouse,
+      );
+      for (var i = 1; i <= 40; i++) {
+        await mouse.moveTo(
+          canvas.topLeft + Offset(60 + i * 10, 120 + 50 * math.sin(i / 5)),
+        );
+        await tester.pump(const Duration(milliseconds: 8));
+      }
+      await mouse.up();
+      final start = canvas.topLeft + const Offset(80, 260);
+      await tester.sendEventToBinding(
+        PointerDownEvent(
+          pointer: 4242,
+          kind: PointerDeviceKind.stylus,
+          position: start,
+          pressure: 0.05,
+          pressureMin: 0,
+          pressureMax: 1,
+        ),
+      );
+      for (var i = 1; i <= 40; i++) {
+        await tester.sendEventToBinding(
+          PointerMoveEvent(
+            pointer: 4242,
+            kind: PointerDeviceKind.stylus,
+            position: start + Offset(i * 10.0, -i * 1.5),
+            pressure: 0.05 + i * 0.0237,
+            pressureMin: 0,
+            pressureMax: 1,
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 8));
+      }
+      await tester.sendEventToBinding(
+        PointerUpEvent(
+          pointer: 4242,
+          kind: PointerDeviceKind.stylus,
+          position: start + const Offset(400, -60),
+        ),
+      );
+      await tester.pump();
+      await waitFor(tester, find.text('Guardado'));
+      await screenshot(tester, '07_dibujo');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await scrollPreviewTo(tester, find.byType(InkPreview));
+
       await waitFor(tester, find.text('Guardado'));
       await screenshot(tester, '04_editor');
 
@@ -231,6 +308,7 @@ void main() {
       if (_samplePdf.isNotEmpty) {
         expect(saved, contains('> — *muestra.pdf*, p. 1'));
       }
+      expect(saved, contains('```ink\nid: '));
 
       // 9. Limpieza: eliminar el cuaderno (y sus notas en cascada).
       await tester.pageBack();

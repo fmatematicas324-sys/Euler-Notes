@@ -3,6 +3,7 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../../core/widgets/math_formula.dart';
+import '../../ink/presentation/ink_preview.dart';
 import '../../plot/domain/diagram_spec.dart';
 import '../../plot/domain/figure_spec.dart';
 import '../../plot/domain/plot_spec.dart';
@@ -44,10 +45,10 @@ class MarkdownPreview extends StatelessWidget {
   }
 }
 
-/// Bloque de código ` ```plot ` o ` ```diagram ` hasta la siguiente ` ``` `.
+/// Bloque ` ```plot `, ` ```diagram ` o ` ```ink ` hasta la siguiente ` ``` `.
 class FigureBlockSyntax extends md.BlockSyntax {
   static const tag = 'figure';
-  static final _start = RegExp(r'^\s*```\s*(plot|diagram|diagrama)\s*$');
+  static final _start = RegExp(r'^\s*```\s*(plot|diagram|diagrama|ink)\s*$');
   static final _end = RegExp(r'^\s*```\s*$');
 
   @override
@@ -187,6 +188,19 @@ class _FigureBuilder extends MarkdownElementBuilder {
     TextStyle? parentStyle,
   ) {
     final source = element.attributes['source'] ?? '';
+    if (element.attributes['language'] == 'ink') {
+      final id = RegExp(r'id\s*:\s*(\d+)').firstMatch(source)?[1];
+      if (id == null) {
+        return Text(
+          'Dibujo no válido: falta «id: número»',
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: InkPreview(drawingId: int.parse(id)),
+      );
+    }
     final isPlot = element.attributes['language'] == 'plot';
     try {
       final FigureSpec spec = isPlot
