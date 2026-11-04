@@ -89,3 +89,12 @@ def test_roots_skip_asymptotes() -> None:
     assert _roots(1 / x, x, xs) == []
     assert _roots(sp.tan(x), x, np.linspace(-1, 1, 1201)) == pytest.approx([0.0], abs=1e-9)
     assert _roots(x**2 - 2, x, xs) == pytest.approx([-(2**0.5), 2**0.5], abs=1e-9)
+
+
+def test_numeric_zeros_are_shown_as_zero() -> None:
+    from app.services.diagrams import _fmt
+
+    assert _fmt(-4.55e-21) == "0"
+    assert _fmt(2.07e-41) == "0"
+    assert _fmt(1.8168) == "1.82"
+    assert _fmt(0.000123) == "1.23e-04"

@@ -158,30 +158,39 @@ class _Art {
     _text('Σ', center, s * 0.17, gold, weight: FontWeight.w300);
   }
 
+  /// Átomo de Bohr: órbitas circulares concéntricas con sus electrones.
   void physics() {
     final center = Offset(w / 2, h * 0.32);
-    final orbit = _stroke(Colors.white.withValues(alpha: 0.85), s * 0.012);
-    for (var i = 0; i < 3; i++) {
-      final angle = i * math.pi / 3;
-      canvas
-        ..save()
-        ..translate(center.dx, center.dy)
-        ..rotate(angle);
-      final ellipse = Rect.fromCenter(
-        center: Offset.zero,
-        width: s * 0.72,
-        height: s * 0.24,
+    for (var n = 1; n <= 3; n++) {
+      final radius = s * (0.1 + n * 0.085);
+      canvas.drawCircle(
+        center,
+        radius,
+        _stroke(Colors.white.withValues(alpha: 0.35 + n * 0.15), s * 0.01),
       );
-      canvas.drawOval(ellipse, orbit);
-      final electron = Offset(
-        math.cos(1.1 + i) * ellipse.width / 2,
-        math.sin(1.1 + i) * ellipse.height / 2,
-      );
-      canvas
-        ..drawCircle(electron, s * 0.022, _fill(const Color(0xFF9BE7FF)))
-        ..restore();
+      for (var e = 0; e < n; e++) {
+        final angle = -math.pi / 2 + n * 0.7 + e * 2 * math.pi / n;
+        canvas.drawCircle(
+          center + Offset(math.cos(angle), math.sin(angle)) * radius,
+          s * 0.024,
+          _fill(const Color(0xFF9BE7FF)),
+        );
+      }
     }
-    canvas.drawCircle(center, s * 0.06, _fill(const Color(0xFFFFD166)));
+    canvas.drawCircle(center, s * 0.07, _fill(const Color(0xFFFFD166)));
+    // Fotón emitido: onda que sale del átomo.
+    final wave = Path();
+    for (var i = 0; i <= 40; i++) {
+      final t = i / 40;
+      final point = Offset(
+        w * (0.62 + 0.34 * t),
+        h * 0.08 + s * 0.025 * math.sin(t * 6 * math.pi),
+      );
+      i == 0
+          ? wave.moveTo(point.dx, point.dy)
+          : wave.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(wave, _stroke(const Color(0xFFFFD166), s * 0.01));
     _text(
       'ħ',
       Offset(w * 0.18, h * 0.08),

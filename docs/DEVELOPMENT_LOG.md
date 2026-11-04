@@ -214,15 +214,20 @@ flutter test integration_test -d linux --dart-define=API_BASE_URL=http://127.0.0
 | `flutter analyze` | No issues found |
 | `flutter test` | **206 passed** (incluye que cada símbolo del catálogo se interpreta en flutter_math_fork, y que todas las portadas y papeles se dibujan en tema claro y oscuro) |
 | Revisión visual | Los 6 tipos de diagrama y el icono (512 px, adaptable y favicon) |
-| Prueba de punta a punta en Linux (diagramas, papel, PDF real) | ⚠️ **No se completó**: Claude Code la detuvo por falta de memoria mientras compilaba la app Linux con pdfrx (la máquina tiene 3,4 GB de RAM y ~2 GB de swap en uso) |
+| Prueba de punta a punta en Linux (diagramas, papel, PDF real) | ✅ **Pasa** al relanzarla con el navegador cerrado (el primer intento se detuvo por falta de memoria: 3,4 GB de RAM). Compila la app Linux con pdfrx (pdfium) y las capturas muestran el PDF dibujado con su texto extraído, el papel milimetrado y el diagrama de la derivada |
+
+### Ajustes tras la revisión visual
+- Los ceros numéricos de la bisección (`-4.55e-21`) se muestran como `0` en las etiquetas de los diagramas.
+- La portada de Física pasa a ser un átomo de Bohr (órbitas circulares y un fotón): el átomo de tres elipses se parecía al logo de React, por la misma razón que se cambió el icono.
+
+### Cómo ejecutar la prueba de punta a punta
+En esta máquina conviene cerrar antes el navegador.
+```bash
+cd app && flutter test integration_test -d linux \
+  --dart-define=API_BASE_URL=http://127.0.0.1:8001 \
+  --dart-define=SAMPLE_PDF=/ruta/a/un.pdf
+```
 
 ### Pendiente
-- Ejecutar la prueba de punta a punta con más memoria libre (cerrar el navegador u otras apps):
-  ```bash
-  cd app && flutter test integration_test -d linux \
-    --dart-define=API_BASE_URL=http://127.0.0.1:8001 \
-    --dart-define=SAMPLE_PDF=/ruta/a/un.pdf
-  ```
-  Esto verifica además que la compilación Linux con pdfrx (pdfium) funciona.
 - Probar el visor de PDF en Web (pdfrx usa pdfium en WASM).
 - El teclado científico aún no se muestra en el panel de cálculo, solo en el editor.

@@ -122,7 +122,10 @@ def _roots(expr: sp.Expr, var: sp.Symbol, xs: np.ndarray) -> list[float]:
 
 
 def _fmt(value: float) -> str:
-    return f"{value:.3g}" if abs(value) >= 1e-3 or value == 0 else f"{value:.2e}"
+    # Los ceros numéricos (p. ej. -4.5e-21 tras la bisección) se muestran como 0.
+    if abs(value) < 1e-9:
+        return "0"
+    return f"{value:.3g}" if abs(value) >= 1e-3 else f"{value:.2e}"
 
 
 def _function(spec: dict[str, Any]) -> bytes:
