@@ -22,7 +22,7 @@ def get_note(note_id: int, conn: Conn) -> Note:
 
 @router.put("/{note_id}")
 def update_note(note_id: int, body: NoteUpdate, conn: Conn) -> Note:
-    note = repo.update_note(conn, note_id, body.title, body.content)
+    note = repo.update_note(conn, note_id, body.title, body.content, body.paper)
     if note is None:
         raise NotFoundError("Nota", note_id)
     return note

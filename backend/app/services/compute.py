@@ -6,7 +6,7 @@ las tareas (SymPy, numpy, matplotlib).
 """
 
 from app.errors import AppError
-from app.services import plotting
+from app.services import pdf, plotting  # noqa: F401  (pdf: precarga de pypdf)
 from app.services import sympy_engine as engine
 from app.services.sandbox import run_isolated
 

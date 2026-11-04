@@ -19,11 +19,40 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
+# Migraciones posteriores a schema.sql (v0.1). La posición en la lista es la
+# versión (`PRAGMA user_version`); nunca se reordenan ni se editan, solo se añaden.
+_MIGRATIONS: tuple[str, ...] = (
+    # 1 · v0.2: portada de cuaderno, papel de nota y biblioteca de PDF.
+    """
+    ALTER TABLE notebooks ADD COLUMN cover TEXT NOT NULL DEFAULT 'classic';
+    ALTER TABLE notes ADD COLUMN paper TEXT NOT NULL DEFAULT 'blank';
+    CREATE TABLE IF NOT EXISTS documents (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        filename    TEXT    NOT NULL,
+        size        INTEGER NOT NULL,
+        pages       INTEGER NOT NULL,
+        created_at  TEXT    NOT NULL
+    );
+    """,
+)
+
+
 def init_db(db_path: Path) -> None:
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with connect(db_path) as conn:
+    documents_dir(db_path).mkdir(exist_ok=True)
+    conn = connect(db_path)
+    try:
         conn.executescript(_SCHEMA_PATH.read_text(encoding="utf-8"))
-    conn.close()
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+        for number, script in enumerate(_MIGRATIONS[version:], start=version + 1):
+            conn.executescript(f"BEGIN;\n{script}\nPRAGMA user_version = {number};\nCOMMIT;")
+    finally:
+        conn.close()
+
+
+def documents_dir(db_path: Path) -> Path:
+    """Carpeta de los PDF importados, junto a la base de datos."""
+    return db_path.parent / "documents"
 
 
 def get_conn(request: Request) -> Iterator[sqlite3.Connection]:

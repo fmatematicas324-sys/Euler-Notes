@@ -2,10 +2,10 @@
 
 import sqlite3
 
-from app.domain.models import Note, Notebook, NoteSummary
+from app.domain.models import Document, Note, Notebook, NoteSummary
 from app.storage.db import now_iso
 
-_NOTE_SUMMARY_COLS = "id, notebook_id, title, created_at, updated_at"
+_NOTE_SUMMARY_COLS = "id, notebook_id, title, paper, created_at, updated_at"
 
 
 # --- Cuadernos -------------------------------------------------------------
@@ -21,21 +21,26 @@ def get_notebook(conn: sqlite3.Connection, notebook_id: int) -> Notebook | None:
     return Notebook(**row) if row else None
 
 
-def create_notebook(conn: sqlite3.Connection, title: str) -> Notebook:
+def create_notebook(conn: sqlite3.Connection, title: str, cover: str = "classic") -> Notebook:
     ts = now_iso()
     cur = conn.execute(
-        "INSERT INTO notebooks (title, created_at, updated_at) VALUES (?, ?, ?)",
-        (title, ts, ts),
+        "INSERT INTO notebooks (title, cover, created_at, updated_at) VALUES (?, ?, ?, ?)",
+        (title, cover, ts, ts),
     )
-    return Notebook(id=cur.lastrowid, title=title, created_at=ts, updated_at=ts)
+    return Notebook(id=cur.lastrowid, title=title, cover=cover, created_at=ts, updated_at=ts)
 
 
-def update_notebook(conn: sqlite3.Connection, notebook_id: int, title: str) -> Notebook | None:
-    cur = conn.execute(
-        "UPDATE notebooks SET title = ?, updated_at = ? WHERE id = ?",
-        (title, now_iso(), notebook_id),
+def update_notebook(
+    conn: sqlite3.Connection, notebook_id: int, title: str | None, cover: str | None
+) -> Notebook | None:
+    current = get_notebook(conn, notebook_id)
+    if current is None:
+        return None
+    conn.execute(
+        "UPDATE notebooks SET title = ?, cover = ?, updated_at = ? WHERE id = ?",
+        (title or current.title, cover or current.cover, now_iso(), notebook_id),
     )
-    return get_notebook(conn, notebook_id) if cur.rowcount else None
+    return get_notebook(conn, notebook_id)
 
 
 def delete_notebook(conn: sqlite3.Connection, notebook_id: int) -> bool:
@@ -59,34 +64,42 @@ def get_note(conn: sqlite3.Connection, note_id: int) -> Note | None:
     return Note(**row) if row else None
 
 
-def create_note(conn: sqlite3.Connection, notebook_id: int, title: str, content: str) -> Note:
+def create_note(
+    conn: sqlite3.Connection, notebook_id: int, title: str, content: str, paper: str = "blank"
+) -> Note:
     ts = now_iso()
     cur = conn.execute(
-        "INSERT INTO notes (notebook_id, title, content, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?)",
-        (notebook_id, title, content, ts, ts),
+        "INSERT INTO notes (notebook_id, title, content, paper, created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (notebook_id, title, content, paper, ts, ts),
     )
     return Note(
         id=cur.lastrowid,
         notebook_id=notebook_id,
         title=title,
         content=content,
+        paper=paper,
         created_at=ts,
         updated_at=ts,
     )
 
 
 def update_note(
-    conn: sqlite3.Connection, note_id: int, title: str | None, content: str | None
+    conn: sqlite3.Connection,
+    note_id: int,
+    title: str | None,
+    content: str | None,
+    paper: str | None = None,
 ) -> Note | None:
     current = get_note(conn, note_id)
     if current is None:
         return None
     conn.execute(
-        "UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ?",
+        "UPDATE notes SET title = ?, content = ?, paper = ?, updated_at = ? WHERE id = ?",
         (
             title if title is not None else current.title,
             content if content is not None else current.content,
+            paper if paper is not None else current.paper,
             now_iso(),
             note_id,
         ),
@@ -96,3 +109,29 @@ def update_note(
 
 def delete_note(conn: sqlite3.Connection, note_id: int) -> bool:
     return conn.execute("DELETE FROM notes WHERE id = ?", (note_id,)).rowcount > 0
+
+
+# --- Documentos -------------------------------------------------------------
+
+
+def list_documents(conn: sqlite3.Connection) -> list[Document]:
+    rows = conn.execute("SELECT * FROM documents ORDER BY created_at DESC, id DESC").fetchall()
+    return [Document(**row) for row in rows]
+
+
+def get_document(conn: sqlite3.Connection, document_id: int) -> Document | None:
+    row = conn.execute("SELECT * FROM documents WHERE id = ?", (document_id,)).fetchone()
+    return Document(**row) if row else None
+
+
+def create_document(conn: sqlite3.Connection, filename: str, size: int, pages: int) -> Document:
+    ts = now_iso()
+    cur = conn.execute(
+        "INSERT INTO documents (filename, size, pages, created_at) VALUES (?, ?, ?, ?)",
+        (filename, size, pages, ts),
+    )
+    return Document(id=cur.lastrowid, filename=filename, size=size, pages=pages, created_at=ts)
+
+
+def delete_document(conn: sqlite3.Connection, document_id: int) -> bool:
+    return conn.execute("DELETE FROM documents WHERE id = ?", (document_id,)).rowcount > 0

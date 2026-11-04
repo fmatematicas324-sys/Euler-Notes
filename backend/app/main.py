@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import compute, health, notebooks, notes, plot
+from app.api import compute, documents, health, notebooks, notes, plot
 from app.config import VERSION, get_db_path
 from app.errors import register_error_handlers
 from app.services.sandbox import start_worker_pool
@@ -39,7 +39,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     register_error_handlers(app)
-    for module in (health, notebooks, notes, compute, plot):
+    for module in (health, notebooks, notes, compute, plot, documents):
         app.include_router(module.router)
     return app
 

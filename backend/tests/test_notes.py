@@ -60,3 +60,17 @@ def test_missing_note_returns_404(client: TestClient) -> None:
 def test_empty_title_rejected_on_update(client: TestClient, notebook_id: int) -> None:
     note = client.post(f"/notebooks/{notebook_id}/notes", json={"title": "x"}).json()
     assert client.put(f"/notes/{note['id']}", json={"title": ""}).status_code == 422
+
+
+def test_paper_default_and_update(client: TestClient, notebook_id: int) -> None:
+    note = client.post(f"/notebooks/{notebook_id}/notes", json={"title": "x"}).json()
+    assert note["paper"] == "blank"
+
+    updated = client.put(f"/notes/{note['id']}", json={"paper": "grid"}).json()
+    assert updated["paper"] == "grid"
+    assert client.get(f"/notebooks/{notebook_id}/notes").json()[0]["paper"] == "grid"
+
+    created = client.post(
+        f"/notebooks/{notebook_id}/notes", json={"title": "y", "paper": "semilog"}
+    ).json()
+    assert created["paper"] == "semilog"

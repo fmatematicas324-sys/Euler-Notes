@@ -17,3 +17,8 @@ def get_db_path() -> Path:
 def get_compute_timeout() -> float:
     """Segundos máximos por cálculo simbólico (`CUADERNO_COMPUTE_TIMEOUT`, por defecto 5)."""
     return float(os.environ.get("CUADERNO_COMPUTE_TIMEOUT", "5"))
+
+
+def get_pdf_timeout() -> float:
+    """Segundos máximos para analizar un PDF (`CUADERNO_PDF_TIMEOUT`, por defecto 20)."""
+    return float(os.environ.get("CUADERNO_PDF_TIMEOUT", "20"))

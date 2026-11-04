@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
 
-from app.domain.models import Note, Notebook, NotebookIn, NoteCreate, NoteSummary
+from app.domain.models import Note, Notebook, NotebookIn, NotebookUpdate, NoteCreate, NoteSummary
 from app.errors import NotFoundError
 from app.storage import repository as repo
 from app.storage.db import get_conn
@@ -26,7 +26,7 @@ def list_notebooks(conn: Conn) -> list[Notebook]:
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def create_notebook(body: NotebookIn, conn: Conn) -> Notebook:
-    return repo.create_notebook(conn, body.title)
+    return repo.create_notebook(conn, body.title, body.cover)
 
 
 @router.get("/{notebook_id}")
@@ -35,8 +35,8 @@ def get_notebook(notebook_id: int, conn: Conn) -> Notebook:
 
 
 @router.put("/{notebook_id}")
-def update_notebook(notebook_id: int, body: NotebookIn, conn: Conn) -> Notebook:
-    notebook = repo.update_notebook(conn, notebook_id, body.title)
+def update_notebook(notebook_id: int, body: NotebookUpdate, conn: Conn) -> Notebook:
+    notebook = repo.update_notebook(conn, notebook_id, body.title, body.cover)
     if notebook is None:
         raise NotFoundError("Cuaderno", notebook_id)
     return notebook
@@ -58,4 +58,4 @@ def list_notes(notebook_id: int, conn: Conn) -> list[NoteSummary]:
 @router.post("/{notebook_id}/notes", status_code=status.HTTP_201_CREATED)
 def create_note(notebook_id: int, body: NoteCreate, conn: Conn) -> Note:
     _require_notebook(conn, notebook_id)
-    return repo.create_note(conn, notebook_id, body.title, body.content)
+    return repo.create_note(conn, notebook_id, body.title, body.content, body.paper)
