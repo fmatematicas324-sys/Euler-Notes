@@ -65,9 +65,11 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
                               updated_at   TEXT
 ```
 - Archivo: `backend/data/cuaderno.db` (ignorado por git; la ruta se puede cambiar con la variable `CUADERNO_DB_PATH`).
-- Las migraciones de v0.1 son un script `schema.sql` idempotente (`CREATE TABLE IF NOT EXISTS`) que se aplica al arrancar.
+- `schema.sql` (v0.1) es idempotente. A partir de él, las **migraciones versionadas** de `storage/db.py` (`PRAGMA user_version`) añaden cambios sin perder datos. v0.2: `notebooks.cover`, `notes.paper` y la tabla `documents` (`id, filename, size, pages, created_at`).
+- Los PDF se guardan en `data/documents/{id}.pdf`, junto a la base de datos.
+- `cover` y `paper` son identificadores (`^[a-z][a-z0-9_]{0,31}$`): el catálogo vive en la app y un valor desconocido se muestra con el valor por defecto.
 
-## 4. Contrato de la API (v0.1)
+## 4. Contrato de la API (v0.2)
 | Método | Ruta | Cuerpo / respuesta |
 |---|---|---|
 | GET | `/notebooks` | → `[Notebook]` |
@@ -82,6 +84,13 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 | DELETE | `/notes/{id}` | → 204 |
 | POST | `/compute` | `{expr, op, var?}` → `{result_latex, result_text}` |
 | POST | `/plot` | `{exprs[1..5], var?, x_min?, x_max?, y_min?, y_max?, theme?, width?, height?, scale?}` → PNG transparente (`image/png`) |
+| POST | `/diagram` | `{kind: function\|forces\|projectile\|graph, …, theme?, width?, height?, scale?}` → PNG |
+| GET | `/documents` | → `[Document]` |
+| POST | `/documents?filename=` | PDF en bruto (`application/pdf`, máx. 30 MB) → `Document` (201) |
+| GET | `/documents/{id}` | → `Document` |
+| GET | `/documents/{id}/file` | → PDF |
+| GET | `/documents/{id}/pages/{n}/text` | → `{page, text, latex}` |
+| DELETE | `/documents/{id}` | → 204 |
 | GET | `/health` | → `{status: "ok", version}` |
 
 - `op` ∈ `simplify | diff | integrate | solve`. `var` es opcional (por defecto `x`).
@@ -117,10 +126,16 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 - **LaTeX:** `flutter_math_fork` mediante `core/widgets/math_formula.dart`. Si una fórmula es inválida, se muestra el texto fuente en rojo y la app no se cae.
 - **Cálculo:** `ComputePanel` en un *bottom sheet*. Inserta el resultado en el cursor como `$...$` o como bloque `$$...$$` en una línea propia.
 - **Gráficas:** un bloque ` ```plot ` (una expresión por línea; opciones `x: -2pi, 2pi`, `y: a, b` y `var: t`) se muestra con `PlotView` (`features/plot`). `PlotView` pide el PNG con el ancho disponible (en saltos de 50 px), el tema y la densidad de píxeles; espera 400 ms mientras se escribe, mantiene la imagen anterior y ofrece «Reintentar» si falla. `PlotRepository` guarda en caché las últimas 32 imágenes.
+- **Diagramas:** un bloque ` ```diagram ` (`tipo: funcion | fuerzas | proyectil | grafo`, ver `DiagramSpec.parse`) se muestra con el mismo `FigureView`. `PlotSpec` y `DiagramSpec` implementan `FigureSpec`, que indica el endpoint y el cuerpo de la petición.
+- **Teclado de símbolos** (`features/symbols`): catálogo de LaTeX con marca de cursor (`‸`). Fuera de una fórmula se envuelve en `$…$`, o en `$$…$$` para las matrices.
+- **PDF** (`features/documents`): biblioteca en una hoja inferior y visor pdfrx con el texto de la página («Texto» → cita con la fuente; «LaTeX» → fórmula). El selector de archivos y el visor se inyectan por providers para poder probarlos sin pdfium.
+- **Estantería:** cuadrícula de `NotebookCoverCard` (portada, lomo, etiqueta y repisa) con 8 portadas `CustomPainter`.
+- **Papel:** `PaperBackground` detrás del editor (renglonado alineado a su altura de línea) y de la vista previa. El milimetrado usa 1 mm ≈ 3,78 px lógicos.
 
 ## 7. Dependencias
 **Backend:** `fastapi`, `uvicorn`, `sympy`, `matplotlib` + `numpy` (v0.2, gráficas) · *dev:* `pytest`, `httpx`, `ruff`.
-**App:** `flutter_riverpod`, `http`, `flutter_markdown_plus`, `flutter_math_fork` · *dev:* `flutter_lints`, `flutter_test`.
+**Backend v0.2:** `networkx` (grafos), `pypdf` (PDF).
+**App:** `flutter_riverpod`, `http`, `flutter_markdown_plus`, `markdown`, `flutter_math_fork`, `pdfrx` (visor de PDF), `file_selector` (importar archivos) · *dev:* `flutter_lints`, `flutter_test`, `integration_test`.
 
 Descartados a propósito en v0.1: ORM, router de navegación, Docker y generación de código (freezed/json_serializable).
 
@@ -138,4 +153,6 @@ Descartados a propósito en v0.1: ORM, router de navegación, Docker y generaci�
 | 2 | SQLite con `sqlite3` de la stdlib, sin ORM | Modelo de 2 tablas; un ORM no compensa. |
 | 3 | REST/JSON en lugar de FFI o Python embebido | Funciona igual en Web y Linux, y se puede depurar con `/docs`. |
 | 4 | Riverpod para el estado | Estándar, testeable, sin generación de código. |
+| 6 | Los PDF se analizan en el subproceso aislado | Son archivos no confiables: pypdf puede tardar o consumir mucha memoria con PDF malformados. |
+| 7 | Portadas, papel e icono dibujados con `CustomPainter` | No hacen falta imágenes ni derechos de terceros; escalan a cualquier densidad y siguen el tema claro u oscuro. |
 | 5 | Gráficas renderizadas en el backend (matplotlib → PNG), no en Flutter | Reutiliza la evaluación segura de SymPy y la calidad de matplotlib; el cliente solo muestra una imagen. A cambio, hace falta el backend (ver la decisión pendiente sobre Android en el ROADMAP). |

@@ -184,3 +184,45 @@ flutter test integration_test -d linux --dart-define=API_BASE_URL=http://127.0.0
 ### Pendiente en la v0.2
 - Visor de PDF con extracción de texto. Antes hay que decidir las dependencias (`pypdf` en el backend; visor en Flutter, p. ej. `pdfrx`).
 - Opcional: «Insertar gráfica» desde el panel de cálculo, con la expresión o su resultado.
+
+---
+
+## 2026-11-03/04 — Fase 2 (v0.2), parte 2: PDF, diagramas, teclado científico e interfaz
+
+| Commit | Contenido |
+|---|---|
+| `fea2e94` | Backend: migraciones versionadas, `cover`/`paper`, biblioteca `/documents` (pypdf aislado) y conversión de Unicode a LaTeX |
+| `d311aa2` | Backend: `/diagram` (función, cuerpo libre, tiro parabólico, grafos con NetworkX) |
+| `1a4d0b0` | App: `FigureSpec`/`FigureView`, bloques ` ```diagram `, representación visual al calcular y menú de plantillas |
+| `082a6e8` | App: teclado de símbolos científicos |
+| `2dae314` | App: biblioteca y visor de PDF con extracción a la nota |
+| `054e36c` | App: estantería con portadas ilustradas y papel de notas |
+| `77b9205` | App: icono propio (Web y Linux) y prueba de punta a punta ampliada |
+
+### Decisiones
+- **Sin retratos de científicos:** las imágenes y nombres de Einstein, Curie y Sagan tienen derechos de imagen gestionados por sus herederos (sobre todo Einstein). Las portadas homenaje usan su obra: E = mc² y el espacio-tiempo curvado; el polonio y el radio; el «punto azul pálido». Si se consiguen imágenes con licencia, pueden añadirse como portadas.
+- **Icono:** el primer diseño, un átomo de tres órbitas, se parecía demasiado al logo de React y se cambió por una página cuadriculada con una gráfica y un átomo de dos órbitas.
+- **Fórmulas de PDF:** pypdf extrae texto, no LaTeX. La conversión de Unicode a LaTeX es aproximada y la interfaz lo dice. Convertir con fiabilidad requeriría OCR matemático, una dependencia pesada que no se ha incluido.
+- **`/diagram` como endpoint propio** junto a `/plot`, en el mismo router: así cada tipo valida sus campos con un modelo Pydantic discriminado por `kind`.
+- **Dependencias nuevas** (aprobadas): `pypdf`, `networkx`, `pdfrx`. Añadida además **`file_selector`**, el paquete oficial y ligero de Flutter para elegir archivos, necesario para importar PDF.
+
+### Verificación
+| Comprobación | Resultado |
+|---|---|
+| `pytest` (backend) | **136 passed** |
+| `ruff check` / `ruff format` | OK |
+| `flutter analyze` | No issues found |
+| `flutter test` | **206 passed** (incluye que cada símbolo del catálogo se interpreta en flutter_math_fork, y que todas las portadas y papeles se dibujan en tema claro y oscuro) |
+| Revisión visual | Los 6 tipos de diagrama y el icono (512 px, adaptable y favicon) |
+| Prueba de punta a punta en Linux (diagramas, papel, PDF real) | ⚠️ **No se completó**: Claude Code la detuvo por falta de memoria mientras compilaba la app Linux con pdfrx (la máquina tiene 3,4 GB de RAM y ~2 GB de swap en uso) |
+
+### Pendiente
+- Ejecutar la prueba de punta a punta con más memoria libre (cerrar el navegador u otras apps):
+  ```bash
+  cd app && flutter test integration_test -d linux \
+    --dart-define=API_BASE_URL=http://127.0.0.1:8001 \
+    --dart-define=SAMPLE_PDF=/ruta/a/un.pdf
+  ```
+  Esto verifica además que la compilación Linux con pdfrx (pdfium) funciona.
+- Probar el visor de PDF en Web (pdfrx usa pdfium en WASM).
+- El teclado científico aún no se muestra en el panel de cálculo, solo en el editor.
