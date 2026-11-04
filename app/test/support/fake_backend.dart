@@ -87,6 +87,7 @@ class FakeBackend {
   final computeRequests = <Map<String, dynamic>>[];
   final noteUpdates = <Map<String, dynamic>>[];
   final plotRequests = <Map<String, dynamic>>[];
+  final diagramRequests = <Map<String, dynamic>>[];
 
   /// Respuesta de `/plot`. Por defecto, un PNG válido.
   http.Response Function(Map<String, dynamic> request) onPlot = (_) =>
@@ -190,6 +191,9 @@ class FakeBackend {
             : http.Response('', 204);
       case ('POST', ['plot']):
         plotRequests.add(body);
+        return onPlot(body);
+      case ('POST', ['diagram']):
+        diagramRequests.add(body);
         return onPlot(body);
       case ('POST', ['compute']):
         computeRequests.add(body);

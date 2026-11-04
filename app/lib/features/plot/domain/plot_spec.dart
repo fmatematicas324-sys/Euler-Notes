@@ -2,10 +2,12 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import 'figure_spec.dart';
+
 /// Qué dibujar: expresiones, variable y rangos. El tamaño, el tema y la
 /// densidad de píxeles los decide el widget que la muestra.
 @immutable
-class PlotSpec {
+class PlotSpec implements FigureSpec {
   const PlotSpec({
     required this.exprs,
     this.variable = 'x',
@@ -66,10 +68,10 @@ class PlotSpec {
 
     final (xMin, xMax) = xRange == null
         ? (-10.0, 10.0)
-        : _parseRange(variable, xRange);
+        : parseRange(variable, xRange);
     final (yMin, yMax) = yRange == null
         ? (null, null)
-        : _parseRange('y', yRange);
+        : parseRange('y', yRange);
     return PlotSpec(
       exprs: List.unmodifiable(exprs),
       variable: variable,
@@ -93,7 +95,8 @@ class PlotSpec {
     r'^(-?(?:\d+(?:\.\d*)?|\.\d+)?)\s*\*?\s*(pi|π)?$',
   );
 
-  static (double, double) _parseRange(String name, String text) {
+  /// Rango `mínimo, máximo` (admite `pi`: `-2pi, 2pi`). Lanza [FormatException].
+  static (double, double) parseRange(String name, String text) {
     final parts = text.split(RegExp(r'\s*[,;]\s*|\s+'));
     if (parts.length != 2) {
       throw FormatException('Rango de $name: usa «$name: mínimo, máximo»');
@@ -125,7 +128,14 @@ class PlotSpec {
     return isPi ? coefficient * math.pi : coefficient;
   }
 
+  @override
+  String get endpoint => '/plot';
+
+  @override
+  String get description => 'Gráfica de ${exprs.join(', ')}';
+
   /// Cuerpo de `POST /plot`.
+  @override
   Map<String, Object> toRequestJson({
     required bool dark,
     required int width,

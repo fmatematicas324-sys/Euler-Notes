@@ -4,12 +4,13 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
-import '../domain/plot_spec.dart';
+import '../domain/figure_spec.dart';
 
-/// Pide gráficas a `POST /plot` y guarda las últimas en memoria: la vista previa
-/// se reconstruye en cada pulsación y no debe volver a pedir la misma imagen.
-class PlotRepository {
-  PlotRepository(this._api);
+/// Pide figuras al backend (`/plot`, `/diagram`) y guarda las últimas en
+/// memoria: la vista previa se reconstruye en cada pulsación y no debe volver a
+/// pedir la misma imagen.
+class FigureRepository {
+  FigureRepository(this._api);
 
   static const cacheSize = 32;
 
@@ -17,7 +18,7 @@ class PlotRepository {
   final _cache = <String, Uint8List>{}; // orden de inserción = LRU
 
   Future<Uint8List> render(
-    PlotSpec spec, {
+    FigureSpec spec, {
     required bool dark,
     required int width,
     required int height,
@@ -29,17 +30,17 @@ class PlotRepository {
       height: height,
       scale: scale,
     );
-    final key = jsonEncode(body);
+    final key = '${spec.endpoint} ${jsonEncode(body)}';
     final cached = _cache.remove(key);
     if (cached != null) return _cache[key] = cached;
 
-    final png = await _api.postForBytes('/plot', body);
+    final png = await _api.postForBytes(spec.endpoint, body);
     _cache[key] = png;
     if (_cache.length > cacheSize) _cache.remove(_cache.keys.first);
     return png;
   }
 }
 
-final plotRepositoryProvider = Provider<PlotRepository>(
-  (ref) => PlotRepository(ref.watch(apiClientProvider)),
+final figureRepositoryProvider = Provider<FigureRepository>(
+  (ref) => FigureRepository(ref.watch(apiClientProvider)),
 );

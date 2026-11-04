@@ -5,27 +5,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_exception.dart';
-import '../data/plot_repository.dart';
-import '../domain/plot_spec.dart';
+import '../data/figure_repository.dart';
+import '../domain/figure_spec.dart';
 
-/// Gráfica generada por el backend (`/plot`) que se adapta al ancho disponible,
+/// Figura generada por el backend (gráfica o diagrama) que se adapta al ancho disponible,
 /// al tema (claro/oscuro) y a la densidad de píxeles del dispositivo.
 ///
 /// Mientras se escribe, espera [debounce] antes de pedir la nueva versión y
 /// mantiene visible la anterior.
-class PlotView extends ConsumerStatefulWidget {
-  const PlotView({super.key, required this.spec, this.height = 300});
+class FigureView extends ConsumerStatefulWidget {
+  const FigureView({super.key, required this.spec, this.height = 300});
 
-  final PlotSpec spec;
+  final FigureSpec spec;
   final double height;
 
   static const debounce = Duration(milliseconds: 400);
 
   @override
-  ConsumerState<PlotView> createState() => _PlotViewState();
+  ConsumerState<FigureView> createState() => _FigureViewState();
 }
 
-class _PlotViewState extends ConsumerState<PlotView> {
+class _FigureViewState extends ConsumerState<FigureView> {
   Uint8List? _image;
   Object? _error;
   bool _loading = false;
@@ -49,7 +49,7 @@ class _PlotViewState extends ConsumerState<PlotView> {
     _requested = request;
     _timer?.cancel();
     final firstLoad = _image == null && _error == null;
-    _timer = Timer(firstLoad ? Duration.zero : PlotView.debounce, () {
+    _timer = Timer(firstLoad ? Duration.zero : FigureView.debounce, () {
       _fetch(request);
     });
   }
@@ -59,7 +59,7 @@ class _PlotViewState extends ConsumerState<PlotView> {
     setState(() => _loading = true);
     try {
       final png = await ref
-          .read(plotRepositoryProvider)
+          .read(figureRepositoryProvider)
           .render(
             request.spec,
             dark: request.dark,
@@ -113,8 +113,7 @@ class _PlotViewState extends ConsumerState<PlotView> {
                       image,
                       gaplessPlayback: true,
                       fit: BoxFit.contain,
-                      semanticLabel:
-                          'Gráfica de ${widget.spec.exprs.join(', ')}',
+                      semanticLabel: widget.spec.description,
                     ),
                   ),
                 )
@@ -207,7 +206,7 @@ class _Request {
     required this.scale,
   });
 
-  final PlotSpec spec;
+  final FigureSpec spec;
   final bool dark;
   final int width;
   final int height;

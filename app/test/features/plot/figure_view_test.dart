@@ -1,8 +1,10 @@
 import 'dart:convert';
 
 import 'package:cuaderno_cientifico/core/api_client.dart';
+import 'package:cuaderno_cientifico/features/plot/domain/figure_spec.dart';
 import 'package:cuaderno_cientifico/features/plot/domain/plot_spec.dart';
-import 'package:cuaderno_cientifico/features/plot/presentation/plot_view.dart';
+import 'package:cuaderno_cientifico/features/plot/domain/diagram_spec.dart';
+import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,14 +16,14 @@ void main() {
   late FakeBackend backend;
   setUp(() => backend = FakeBackend());
 
-  Widget host(PlotSpec spec, {Brightness brightness = Brightness.light}) =>
+  Widget host(FigureSpec spec, {Brightness brightness = Brightness.light}) =>
       ProviderScope(
         overrides: [httpClientProvider.overrideWithValue(backend.client)],
         child: MaterialApp(
           theme: ThemeData(brightness: brightness),
           home: Scaffold(
             body: Center(
-              child: SizedBox(width: 640, child: PlotView(spec: spec)),
+              child: SizedBox(width: 640, child: FigureView(spec: spec)),
             ),
           ),
         ),
@@ -68,7 +70,7 @@ void main() {
     }
     expect(backend.plotRequests, hasLength(1));
 
-    await tester.pump(PlotView.debounce);
+    await tester.pump(FigureView.debounce);
     await tester.pumpAndSettle();
     expect(backend.plotRequests, hasLength(2));
     expect(backend.plotRequests.last['exprs'], ['x^2 + 1']);
@@ -79,10 +81,10 @@ void main() {
   ) async {
     await pumpHost(tester, host(const PlotSpec(exprs: ['cos(x)'])));
     await tester.pumpWidget(host(const PlotSpec(exprs: ['sin(x)'])));
-    await tester.pump(PlotView.debounce);
+    await tester.pump(FigureView.debounce);
     await tester.pumpAndSettle();
     await tester.pumpWidget(host(const PlotSpec(exprs: ['cos(x)'])));
-    await tester.pump(PlotView.debounce);
+    await tester.pump(FigureView.debounce);
     await tester.pumpAndSettle();
 
     expect(backend.plotRequests.map((r) => r['exprs']), [
@@ -139,5 +141,25 @@ void main() {
     expect(backend.plotRequests, hasLength(2));
     expect(find.byType(Image), findsOneWidget);
     expect(find.textContaining('límite de 5 s'), findsNothing);
+  });
+
+  testWidgets('un diagrama se pide a /diagram con su tipo', (tester) async {
+    backend.diagramRequests.clear();
+    await pumpHost(
+      tester,
+      host(DiagramSpec.parse('tipo: proyectil\nv0: 20\nangulo: 45')),
+    );
+    expect(backend.diagramRequests.single, {
+      'kind': 'projectile',
+      'v0': 20.0,
+      'angle': 45.0,
+      'g': 9.81,
+      'h0': 0.0,
+      'theme': 'light',
+      'width': 600,
+      'height': 300,
+      'scale': 2.0,
+    });
+    expect(backend.plotRequests, isEmpty);
   });
 }

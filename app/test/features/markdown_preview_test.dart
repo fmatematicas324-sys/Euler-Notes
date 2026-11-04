@@ -1,6 +1,6 @@
 import 'package:cuaderno_cientifico/core/api_client.dart';
 import 'package:cuaderno_cientifico/features/notes/presentation/markdown_preview.dart';
-import 'package:cuaderno_cientifico/features/plot/presentation/plot_view.dart';
+import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -67,7 +67,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(PlotView), findsOneWidget);
+    expect(find.byType(FigureView), findsOneWidget);
     expect(find.text('Antes'), findsOneWidget);
     expect(find.text('Después'), findsOneWidget);
     expect(backend.plotRequests.single['exprs'], ['sin(x)']);
@@ -75,13 +75,39 @@ void main() {
 
   testWidgets('bloque ```plot inválido muestra el motivo', (tester) async {
     await _pump(tester, '```plot\nx\nx: 3, 1\n```');
-    expect(find.byType(PlotView), findsNothing);
+    expect(find.byType(FigureView), findsNothing);
     expect(find.textContaining('Gráfica no válida'), findsOneWidget);
+  });
+
+  testWidgets('bloque ```diagram se muestra como diagrama', (tester) async {
+    final backend = FakeBackend();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [httpClientProvider.overrideWithValue(backend.client)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: MarkdownPreview(
+              data: '```diagram\ntipo: fuerzas\nPeso: 9.8, 270\n```',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FigureView), findsOneWidget);
+    expect(backend.diagramRequests.single['kind'], 'forces');
+  });
+
+  testWidgets('bloque ```diagram inválido muestra el motivo', (tester) async {
+    await _pump(tester, '```diagram\ntipo: circuito\n```');
+    expect(find.textContaining('Diagrama no válido'), findsOneWidget);
+    expect(find.textContaining('Tipo desconocido'), findsOneWidget);
   });
 
   testWidgets('otros bloques de código no son gráficas', (tester) async {
     await _pump(tester, '```python\nprint(1)\n```');
-    expect(find.byType(PlotView), findsNothing);
+    expect(find.byType(FigureView), findsNothing);
     expect(find.textContaining('print(1)'), findsOneWidget);
   });
 

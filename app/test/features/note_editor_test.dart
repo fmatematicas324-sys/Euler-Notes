@@ -27,6 +27,12 @@ void main() {
   String contentText(WidgetTester tester) =>
       tester.widget<TextField>(content()).controller!.text;
 
+  /// Las figuras piden su imagen en un temporizador: hay que avanzar el reloj.
+  Future<void> pumpFigures(WidgetTester tester) async {
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> waitAutosave(WidgetTester tester) async {
     await tester.pump(NoteEditorScreen.autosaveDelay);
     await tester.pumpAndSettle();
@@ -105,12 +111,71 @@ void main() {
 
     await tester.tap(find.text('Gráfica'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Gráfica de función'));
+    await tester.pumpAndSettle();
+    await pumpFigures(tester);
 
     expect(
       contentText(tester),
       'Inicio\n\n```plot\nsin(x)\nx: -2pi, 2pi\n```\n',
     );
     expect(backend.plotRequests.single['exprs'], ['sin(x)']);
+    await waitAutosave(tester);
+  });
+
+  testWidgets('menú Gráfica inserta plantillas de diagrama', (tester) async {
+    await openEditor(tester);
+    final controller = tester.widget<TextField>(content()).controller!;
+    controller.selection = const TextSelection.collapsed(offset: 6);
+
+    await tester.tap(find.text('Gráfica'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cuerpo libre'));
+    await tester.pumpAndSettle();
+    await pumpFigures(tester);
+
+    expect(contentText(tester), contains('```diagram\ntipo: fuerzas\n'));
+    expect(backend.diagramRequests.single['kind'], 'forces');
+    await waitAutosave(tester);
+  });
+
+  testWidgets('panel de cálculo: representación visual al insertar', (
+    tester,
+  ) async {
+    await openEditor(tester);
+    await tester.tap(find.text('Calcular').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('compute-expr')), 'x^3 - 3x');
+    await tester.tap(find.byKey(const Key('compute-run')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Insertar como bloque'));
+    await tester.pumpAndSettle();
+
+    expect(
+      contentText(tester),
+      endsWith(
+        '```diagram\ntipo: funcion\nf: x^3 - 3x\nop: derivar\n'
+        'x: -10, 10\n```\n',
+      ),
+    );
+    expect(backend.diagramRequests.single, containsPair('op', 'diff'));
+    await waitAutosave(tester);
+  });
+
+  testWidgets('panel de cálculo: sin representación visual si se desactiva', (
+    tester,
+  ) async {
+    await openEditor(tester);
+    await tester.tap(find.text('Calcular').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('compute-expr')), 'x^2');
+    await tester.tap(find.byKey(const Key('compute-visual')));
+    await tester.tap(find.byKey(const Key('compute-run')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Insertar en línea'));
+    await tester.pumpAndSettle();
+
+    expect(contentText(tester), r'Inicio$2 x$');
     await waitAutosave(tester);
   });
 
@@ -129,6 +194,7 @@ void main() {
     await tester.tap(find.text('Calcular').first);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('compute-expr')), 'sin(x)*x');
+    await tester.tap(find.byKey(const Key('compute-visual')));
     await tester.tap(find.byKey(const Key('compute-run')));
     await tester.pumpAndSettle();
 

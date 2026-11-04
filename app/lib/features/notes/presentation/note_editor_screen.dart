@@ -8,6 +8,7 @@ import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/feedback.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../compute/presentation/compute_panel.dart';
+import '../../plot/domain/diagram_spec.dart';
 import '../data/notes_repository.dart';
 import 'markdown_preview.dart';
 
@@ -195,26 +196,36 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   void _insertBlockFormula() =>
       _replaceSelection('${_blockPrefix()}\$\$\n', '\n\$\$\n');
 
-  void _insertPlot() {
-    final selected = _selection().textInside(_content.text).trim();
-    final expr = selected.isEmpty ? 'sin(x)' : selected;
-    final prefix = _blockPrefix();
+  /// Inserta un bloque (plantilla de gráfica o diagrama) en línea propia.
+  void _insertBlock(String block) {
     final selection = _selection();
-    final block = '$prefix```plot\n$expr\nx: -2pi, 2pi\n```\n';
+    final text = '${_blockPrefix()}$block\n';
     _content.value = TextEditingValue(
-      text: _content.text.replaceRange(selection.start, selection.end, block),
-      selection: TextSelection.collapsed(
-        offset: selection.start + block.length,
-      ),
+      text: _content.text.replaceRange(selection.start, selection.end, text),
+      selection: TextSelection.collapsed(offset: selection.start + text.length),
     );
   }
 
-  void _insertMath(String latex, {required bool display}) {
+  void _insertFigure(String? template) {
+    if (template != null) {
+      _insertBlock(template);
+      return;
+    }
+    // Gráfica de función: usa la selección como expresión, si la hay.
+    final selected = _selection().textInside(_content.text).trim();
+    final expr = selected.isEmpty || selected.contains('\n')
+        ? 'sin(x)'
+        : selected;
+    _insertBlock('```plot\n$expr\nx: -2pi, 2pi\n```');
+  }
+
+  void _insertMath(String latex, {required bool display, String? figureBlock}) {
     if (display) {
       _replaceSelection('${_blockPrefix()}\$\$$latex\$\$\n', '');
     } else {
       _replaceSelection('\$$latex\$', '');
     }
+    if (figureBlock != null) _insertBlock(figureBlock);
   }
 
   Future<void> _openCompute() async {
@@ -227,9 +238,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
           bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
         ),
         child: ComputePanel(
-          onInsert: (latex, {required display}) {
+          onInsert: (latex, {required display, figureBlock}) {
             Navigator.of(sheetContext).pop();
-            _insertMath(latex, display: display);
+            _insertMath(latex, display: display, figureBlock: figureBlock);
           },
         ),
       ),
@@ -291,7 +302,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         _EditorToolbar(
           onInlineFormula: _insertInlineFormula,
           onBlockFormula: _insertBlockFormula,
-          onPlot: _insertPlot,
+          onFigure: _insertFigure,
           onCompute: _openCompute,
         ),
         const Divider(height: 1),
@@ -364,13 +375,15 @@ class _EditorToolbar extends StatelessWidget {
   const _EditorToolbar({
     required this.onInlineFormula,
     required this.onBlockFormula,
-    required this.onPlot,
+    required this.onFigure,
     required this.onCompute,
   });
 
   final VoidCallback onInlineFormula;
   final VoidCallback onBlockFormula;
-  final VoidCallback onPlot;
+
+  /// `null`: gráfica de función; si no, la plantilla de diagrama elegida.
+  final ValueChanged<String?> onFigure;
   final VoidCallback onCompute;
 
   @override
@@ -390,10 +403,27 @@ class _EditorToolbar extends StatelessWidget {
             icon: const Icon(Icons.calculate_outlined),
             label: const Text(r'$$ Bloque'),
           ),
-          TextButton.icon(
-            onPressed: onPlot,
-            icon: const Icon(Icons.show_chart),
-            label: const Text('Gráfica'),
+          MenuAnchor(
+            menuChildren: [
+              MenuItemButton(
+                leadingIcon: const Icon(Icons.show_chart),
+                onPressed: () => onFigure(null),
+                child: const Text('Gráfica de función'),
+              ),
+              for (final MapEntry(key: name, value: block)
+                  in DiagramSpec.templates.entries)
+                MenuItemButton(
+                  leadingIcon: const Icon(Icons.schema_outlined),
+                  onPressed: () => onFigure(block),
+                  child: Text(name),
+                ),
+            ],
+            builder: (context, controller, _) => TextButton.icon(
+              onPressed: () =>
+                  controller.isOpen ? controller.close() : controller.open(),
+              icon: const Icon(Icons.show_chart),
+              label: const Text('Gráfica'),
+            ),
           ),
           FilledButton.tonalIcon(
             onPressed: onCompute,

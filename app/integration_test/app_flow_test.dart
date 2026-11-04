@@ -11,7 +11,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:cuaderno_cientifico/app.dart';
-import 'package:cuaderno_cientifico/features/plot/presentation/plot_view.dart';
+import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -133,7 +133,7 @@ void main() {
       await waitFor(
         tester,
         find.descendant(
-          of: find.byType(PlotView),
+          of: find.byType(FigureView),
           matching: find.byType(Image),
         ),
       );

@@ -3,14 +3,17 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../../core/widgets/math_formula.dart';
+import '../../plot/domain/diagram_spec.dart';
+import '../../plot/domain/figure_spec.dart';
 import '../../plot/domain/plot_spec.dart';
-import '../../plot/presentation/plot_view.dart';
+import '../../plot/presentation/figure_view.dart';
 
 /// Vista previa de Markdown con fórmulas LaTeX nativas:
 /// - `$...$` en línea (sin espacio junto a los `$`, para no confundir precios).
 /// - `$$...$$` en una línea propia (o varias) se muestra como bloque centrado.
 /// - `$$...$$` dentro de un párrafo se muestra en estilo display, en línea.
-/// - Un bloque ` ```plot ` se muestra como gráfica (ver [PlotSpec.parse]).
+/// - Un bloque ` ```plot ` se muestra como gráfica (ver [PlotSpec.parse]) y uno
+///   ` ```diagram ` como diagrama científico (ver [DiagramSpec.parse]).
 class MarkdownPreview extends StatelessWidget {
   const MarkdownPreview({super.key, required this.data});
 
@@ -30,21 +33,21 @@ class MarkdownPreview extends StatelessWidget {
       data: data,
       padding: const EdgeInsets.all(16),
       extensionSet: md.ExtensionSet.gitHubFlavored,
-      blockSyntaxes: [PlotBlockSyntax(), MathBlockSyntax()],
+      blockSyntaxes: [FigureBlockSyntax(), MathBlockSyntax()],
       inlineSyntaxes: [MathInlineSyntax()],
       builders: {
         MathInlineSyntax.tag: _InlineMathBuilder(),
         MathBlockSyntax.tag: _BlockMathBuilder(),
-        PlotBlockSyntax.tag: _PlotBuilder(),
+        FigureBlockSyntax.tag: _FigureBuilder(),
       },
     );
   }
 }
 
-/// Bloque de código ` ```plot ` hasta la siguiente línea ` ``` `.
-class PlotBlockSyntax extends md.BlockSyntax {
-  static const tag = 'plot';
-  static final _start = RegExp(r'^\s*```\s*plot\s*$');
+/// Bloque de código ` ```plot ` o ` ```diagram ` hasta la siguiente ` ``` `.
+class FigureBlockSyntax extends md.BlockSyntax {
+  static const tag = 'figure';
+  static final _start = RegExp(r'^\s*```\s*(plot|diagram|diagrama)\s*$');
   static final _end = RegExp(r'^\s*```\s*$');
 
   @override
@@ -52,6 +55,7 @@ class PlotBlockSyntax extends md.BlockSyntax {
 
   @override
   md.Node parse(md.BlockParser parser) {
+    final language = _start.firstMatch(parser.current.content)![1]!;
     parser.advance();
     final lines = <String>[];
     while (!parser.isDone) {
@@ -60,7 +64,9 @@ class PlotBlockSyntax extends md.BlockSyntax {
       if (_end.hasMatch(line)) break;
       lines.add(line);
     }
-    return md.Element.empty(tag)..attributes['source'] = lines.join('\n');
+    return md.Element.empty(tag)
+      ..attributes['language'] = language
+      ..attributes['source'] = lines.join('\n');
   }
 }
 
@@ -169,7 +175,7 @@ class _BlockMathBuilder extends MarkdownElementBuilder {
   }
 }
 
-class _PlotBuilder extends MarkdownElementBuilder {
+class _FigureBuilder extends MarkdownElementBuilder {
   @override
   bool isBlockElement() => true;
 
@@ -181,10 +187,14 @@ class _PlotBuilder extends MarkdownElementBuilder {
     TextStyle? parentStyle,
   ) {
     final source = element.attributes['source'] ?? '';
+    final isPlot = element.attributes['language'] == 'plot';
     try {
+      final FigureSpec spec = isPlot
+          ? PlotSpec.parse(source)
+          : DiagramSpec.parse(source);
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: PlotView(spec: PlotSpec.parse(source)),
+        child: FigureView(spec: spec, height: isPlot ? 300 : 340),
       );
     } on FormatException catch (error) {
       final colors = Theme.of(context).colorScheme;
@@ -196,7 +206,8 @@ class _PlotBuilder extends MarkdownElementBuilder {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
-          'Gráfica no válida: ${error.message}',
+          '${isPlot ? 'Gráfica no válida' : 'Diagrama no válido'}: '
+          '${error.message}',
           style: TextStyle(color: colors.error),
         ),
       );
