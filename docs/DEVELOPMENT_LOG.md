@@ -228,6 +228,24 @@ cd app && flutter test integration_test -d linux \
   --dart-define=SAMPLE_PDF=/ruta/a/un.pdf
 ```
 
+### Visor de PDF en Web ✅
+- `integration_test/pdf_web_test.dart` y `test_driver/integration_test.dart`: abre un PDF ya importado desde la biblioteca y espera a que pdfium (WASM) lo cargue (2 páginas). Pasa a la página 2 desde el panel, inserta la cita y comprueba la nota. Guarda capturas con `binding.takeScreenshot`.
+- Resultado: **pasa** en Chromium 156 sin interfaz (`flutter drive -d web-server --headless --release`). Las capturas muestran el PDF dibujado y el texto extraído (`∮`, `ε₀`, `∂`, `∇²`), y el visor sigue la página elegida en el panel.
+- Requisito instalado: `chromedriver` 156 (paquete de Fedora, misma versión que Chromium).
+- Lecciones:
+  - En Web, `tester.enterText` solo funciona tras `binding.testTextInput.register()`, porque el texto entra por un `<input>` del navegador.
+  - Los errores de los tests en Web llegan sin mensaje: la prueba guarda el paso y el error en `reportData` (`writeResponseOnFailure: true`).
+- Cómo ejecutarla (con el backend en marcha y un PDF subido como `muestra-web.pdf`):
+  ```bash
+  chromedriver --port=4444 &
+  cd app && CHROME_EXECUTABLE=/usr/bin/chromium-browser flutter drive \
+    -d web-server --browser-name=chrome --headless --release \
+    --driver=test_driver/integration_test.dart \
+    --target=integration_test/pdf_web_test.dart \
+    --dart-define=API_BASE_URL=http://127.0.0.1:8001 \
+    --dart-define=PDF_NAME=muestra-web.pdf
+  ```
+
 ### Pendiente
-- Probar el visor de PDF en Web (pdfrx usa pdfium en WASM).
+- Etiquetar `v0.2.0`.
 - El teclado científico aún no se muestra en el panel de cálculo, solo en el editor.

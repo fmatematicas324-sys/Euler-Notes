@@ -42,7 +42,7 @@ Objetivo: visualizar y consultar material científico dentro del cuaderno, con u
 - [x] Backend: biblioteca `/documents` (subir, listar, descargar, texto por página, borrar), con pypdf en el subproceso aislado.
 - [x] Flutter: visor pdfrx con el texto de la página para insertarlo como cita con la fuente, o como fórmula (conversión aproximada de Unicode a LaTeX).
 - [x] Visor verificado con pdfium en la app Linux (prueba de punta a punta).
-- [ ] Verificar el visor en Web (pdfium WASM).
+- [x] Visor verificado en Web (pdfium WASM) con `flutter drive` en Chromium.
 
 ### Edición científica
 - [x] Teclado de símbolos científicos (adelantado desde la v0.4): cálculo, vectores, matrices, griegas, relaciones y física.
@@ -52,7 +52,7 @@ Objetivo: visualizar y consultar material científico dentro del cuaderno, con u
 - [x] Papel por nota: blanco, renglonado, milimetrado, punteado y semilogarítmico.
 - [x] Icono propio para Web (favicon y PWA) y para la ventana de Linux.
 
-**Salida:** se etiqueta `v0.2.0` cuando se compruebe el visor de PDF en Web (en Linux ya pasa la prueba de punta a punta).
+**Salida:** ✅ cumplida en Linux y Web. Pendiente de etiquetar `v0.2.0`.
 
 ## Fase 3 — v0.3 Escritura a mano (lápiz/stylus)
 - [ ] Lienzo de escritura con `CustomPainter` y `Listener`: trazos suavizados y grosor según la **presión** (`PointerEvent.pressure`).
