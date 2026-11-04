@@ -1,6 +1,6 @@
-import 'package:cuaderno_cientifico/features/notes/domain/paper_style.dart';
-import 'package:cuaderno_cientifico/features/notes/presentation/note_editor_screen.dart';
-import 'package:cuaderno_cientifico/features/notes/presentation/paper_background.dart';
+import 'package:euler_notes/features/notes/domain/paper_style.dart';
+import 'package:euler_notes/features/notes/presentation/note_editor_screen.dart';
+import 'package:euler_notes/features/notes/presentation/paper_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';

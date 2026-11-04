@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:cuaderno_cientifico/features/plot/domain/diagram_spec.dart';
+import 'package:euler_notes/features/plot/domain/diagram_spec.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, Object?> _json(DiagramSpec spec) => spec.toRequestJson(

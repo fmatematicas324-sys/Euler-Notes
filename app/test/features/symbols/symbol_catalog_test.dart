@@ -1,4 +1,4 @@
-import 'package:cuaderno_cientifico/features/symbols/domain/latex_symbol.dart';
+import 'package:euler_notes/features/symbols/domain/latex_symbol.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 

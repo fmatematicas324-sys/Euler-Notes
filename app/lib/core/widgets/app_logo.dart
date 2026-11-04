@@ -2,9 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Logotipo de Cuaderno Científico: una página cuadriculada con espiral, una
-/// gráfica y un pequeño átomo, sobre un fondo azul. Es también la fuente de los iconos de la app
-/// (`tool/generate_app_icons_test.dart`).
+/// Logotipo de Euler Notes: un átomo en órbita sobre la portada minimalista de
+/// un cuaderno (lomo y cinta marcapáginas), sobre un fondo azul.
+///
+/// Geometría idéntica a `assets/icon/euler_notes.svg` (unidades 0–1 del lado).
+/// Es la fuente de los iconos (`tool/generate_app_icons_test.dart`).
 class AppLogo extends StatelessWidget {
   const AppLogo({super.key, this.size = 32});
 
@@ -17,16 +19,31 @@ class AppLogo extends StatelessWidget {
   );
 }
 
+/// Capa del icono a dibujar.
+enum IconLayer {
+  /// Icono completo con esquinas redondeadas.
+  full,
+
+  /// Fondo a sangre y motivo en la zona segura (PWA «maskable»).
+  maskable,
+
+  /// Solo el motivo, transparente (primer plano del icono adaptable Android).
+  foreground,
+
+  /// Solo el fondo (fondo del icono adaptable Android).
+  background,
+}
+
 class AppIconPainter extends CustomPainter {
-  /// [maskable]: fondo a sangre y motivo dentro de la zona segura (80 %),
-  /// como piden los iconos adaptables de Android y las PWA.
-  const AppIconPainter({this.maskable = false});
+  const AppIconPainter({this.layer = IconLayer.full});
 
-  final bool maskable;
+  final IconLayer layer;
 
-  static const _deep = Color(0xFF0B3D91);
-  static const _teal = Color(0xFF1B8A9A);
-  static const _accent = Color(0xFFF76707);
+  static const deepBlue = Color(0xFF0B3D91);
+  static const teal = Color(0xFF1B8A9A);
+  static const accent = Color(0xFFF76707);
+  static const paper = Color(0xFFFFFDF7);
+  static const spine = Color(0xFFDDE3EA);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -36,128 +53,97 @@ class AppIconPainter extends CustomPainter {
       ..shader = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [_deep, _teal],
+        colors: [deepBlue, teal],
       ).createShader(rect);
-    if (maskable) {
-      canvas.drawRect(rect, background);
-    } else {
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, Radius.circular(side * 0.22)),
-        background,
-      );
-    }
 
-    // El motivo ocupa el 80 % central en la versión adaptable.
-    final scale = maskable ? 0.8 : 1.0;
+    switch (layer) {
+      case IconLayer.full:
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, Radius.circular(side * 0.22)),
+          background,
+        );
+        _motif(canvas, side, 1);
+      case IconLayer.maskable:
+        canvas.drawRect(rect, background);
+        _motif(canvas, side, 0.8);
+      case IconLayer.foreground:
+        // Zona segura del icono adaptable: 66 de 108 dp.
+        _motif(canvas, side, 0.72);
+      case IconLayer.background:
+        canvas.drawRect(rect, background);
+    }
+  }
+
+  void _motif(Canvas canvas, double side, double scale) {
     canvas
       ..save()
       ..translate(side * (1 - scale) / 2, side * (1 - scale) / 2)
       ..scale(scale);
-    _motif(canvas, side);
-    canvas.restore();
-  }
+    final s = side;
+    Offset p(double x, double y) => Offset(x * s, y * s);
 
-  void _motif(Canvas canvas, double s) {
-    // Página.
-    final page = RRect.fromRectAndRadius(
-      Rect.fromLTRB(s * 0.24, s * 0.17, s * 0.82, s * 0.83),
-      Radius.circular(s * 0.05),
+    // Portada con sombra.
+    final cover = RRect.fromRectAndRadius(
+      Rect.fromLTRB(0.27 * s, 0.18 * s, 0.75 * s, 0.82 * s),
+      Radius.circular(0.06 * s),
     );
     canvas
       ..drawRRect(
-        page.shift(Offset(s * 0.015, s * 0.02)),
+        cover.shift(p(0.014, 0.02)),
         Paint()..color = const Color(0x40000000),
       )
-      ..drawRRect(page, Paint()..color = const Color(0xFFFFFDF7));
+      ..drawRRect(cover, Paint()..color = paper);
 
-    // Cuadrícula.
-    final grid = Paint()
-      ..color = _deep.withValues(alpha: 0.12)
-      ..strokeWidth = math.max(0.6, s * 0.006);
+    // Lomo.
     canvas
       ..save()
-      ..clipRRect(page);
-    for (var x = page.left + s * 0.07; x < page.right; x += s * 0.07) {
-      canvas.drawLine(Offset(x, page.top), Offset(x, page.bottom), grid);
-    }
-    for (var y = page.top + s * 0.07; y < page.bottom; y += s * 0.07) {
-      canvas.drawLine(Offset(page.left, y), Offset(page.right, y), grid);
-    }
-    canvas.restore();
+      ..clipRRect(cover)
+      ..drawRect(
+        Rect.fromLTRB(0.27 * s, 0.18 * s, 0.34 * s, 0.82 * s),
+        Paint()..color = spine,
+      )
+      ..restore();
 
-    // Espiral.
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.022
-      ..color = const Color(0xFFDEE2E6);
-    for (var i = 0; i < 5; i++) {
-      final y = page.top + page.height * (0.14 + i * 0.18);
-      canvas
-        ..drawCircle(Offset(page.left, y), s * 0.028, ring)
-        ..drawCircle(
-          Offset(page.left + s * 0.035, y),
-          s * 0.012,
-          Paint()..color = _deep.withValues(alpha: 0.5),
-        );
-    }
-
-    // Ejes y curva: una gráfica sobre papel cuadriculado.
-    final axis = Paint()
-      ..color = _deep.withValues(alpha: 0.75)
-      ..strokeWidth = s * 0.018
-      ..strokeCap = StrokeCap.round;
-    final origin = Offset(page.left + s * 0.12, page.top + page.height * 0.62);
-    canvas
-      ..drawLine(origin, Offset(page.right - s * 0.05, origin.dy), axis)
-      ..drawLine(origin, Offset(origin.dx, page.top + s * 0.08), axis);
-    final curve = Path();
-    final width = page.right - s * 0.07 - origin.dx;
-    for (var i = 0; i <= 48; i++) {
-      final t = i / 48;
-      final point = Offset(
-        origin.dx + width * t,
-        origin.dy - s * 0.13 * math.sin(t * 2 * math.pi) - s * 0.06 * t,
-      );
-      i == 0
-          ? curve.moveTo(point.dx, point.dy)
-          : curve.lineTo(point.dx, point.dy);
-    }
+    // Cinta marcapáginas.
     canvas.drawPath(
-      curve,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = s * 0.034
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round
-        ..color = _accent,
+      Path()
+        ..moveTo(0.63 * s, 0.18 * s)
+        ..lineTo(0.68 * s, 0.18 * s)
+        ..lineTo(0.68 * s, 0.36 * s)
+        ..lineTo(0.655 * s, 0.33 * s)
+        ..lineTo(0.63 * s, 0.36 * s)
+        ..close(),
+      Paint()..color = accent,
     );
 
-    // Átomo pequeño de dos órbitas con sus electrones, en la esquina.
-    final atom = Offset(page.right - s * 0.13, page.top + s * 0.14);
+    // Átomo: dos órbitas cruzadas, cada una con su electrón.
+    final center = p(0.545, 0.53);
     final orbit = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = s * 0.014
-      ..color = _teal;
-    for (final angle in [math.pi / 4, -math.pi / 4]) {
+      ..strokeWidth = 0.022 * s
+      ..color = deepBlue;
+    for (final degrees in [35.0, -35.0]) {
       canvas
         ..save()
-        ..translate(atom.dx, atom.dy)
-        ..rotate(angle)
+        ..translate(center.dx, center.dy)
+        ..rotate(degrees * math.pi / 180)
         ..drawOval(
           Rect.fromCenter(
             center: Offset.zero,
-            width: s * 0.2,
-            height: s * 0.075,
+            width: 0.34 * s,
+            height: 0.13 * s,
           ),
           orbit,
         )
-        ..drawCircle(Offset(s * 0.1, 0), s * 0.016, Paint()..color = _deep)
+        ..drawCircle(Offset(0.17 * s, 0), 0.022 * s, Paint()..color = teal)
         ..restore();
     }
-    canvas.drawCircle(atom, s * 0.022, Paint()..color = _deep);
+    canvas
+      ..drawCircle(center, 0.04 * s, Paint()..color = accent)
+      ..restore();
   }
 
   @override
   bool shouldRepaint(covariant AppIconPainter oldDelegate) =>
-      oldDelegate.maskable != maskable;
+      oldDelegate.layer != layer;
 }

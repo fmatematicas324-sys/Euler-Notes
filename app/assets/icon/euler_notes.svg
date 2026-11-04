@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Icono oficial de Euler Notes: átomo en órbita sobre la portada minimalista
+     de un cuaderno. Misma geometría que AppIconPainter (lib/core/widgets/app_logo.dart). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B3D91"/>
+      <stop offset="1" stop-color="#1B8A9A"/>
+    </linearGradient>
+    <clipPath id="portada">
+      <rect x="276.48" y="184.32" width="491.52" height="655.36" rx="61.44"/>
+    </clipPath>
+  </defs>
+  <rect width="1024" height="1024" rx="225.28" fill="url(#fondo)"/>
+  <!-- Portada, sombra y lomo -->
+  <rect x="290.82" y="204.8" width="491.52" height="655.36" rx="61.44" fill="#000" fill-opacity="0.25"/>
+  <rect x="276.48" y="184.32" width="491.52" height="655.36" rx="61.44" fill="#FFFDF7"/>
+  <rect x="276.48" y="184.32" width="71.68" height="655.36" fill="#DDE3EA" clip-path="url(#portada)"/>
+  <!-- Cinta marcapáginas -->
+  <polygon points="645.12,184.32 696.32,184.32 696.32,368.64 670.72,337.92 645.12,368.64" fill="#F76707"/>
+  <!-- Átomo: dos órbitas con su electrón y el núcleo -->
+  <g transform="translate(558.08 542.72)">
+    <g transform="rotate(35)">
+      <ellipse rx="174.08" ry="66.56" fill="none" stroke="#0B3D91" stroke-width="22.53"/>
+      <circle cx="174.08" r="22.53" fill="#1B8A9A"/>
+    </g>
+    <g transform="rotate(-35)">
+      <ellipse rx="174.08" ry="66.56" fill="none" stroke="#0B3D91" stroke-width="22.53"/>
+      <circle cx="174.08" r="22.53" fill="#1B8A9A"/>
+    </g>
+    <circle r="40.96" fill="#F76707"/>
+  </g>
+</svg>

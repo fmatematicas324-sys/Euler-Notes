@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:cuaderno_cientifico/app.dart';
-import 'package:cuaderno_cientifico/core/api_client.dart';
+import 'package:euler_notes/app.dart';
+import 'package:euler_notes/core/api_client.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
@@ -314,7 +314,7 @@ Future<void> pumpApp(
         httpClientProvider.overrideWithValue(backend.client),
         ...overrides,
       ],
-      child: const CuadernoApp(),
+      child: const EulerNotesApp(),
     ),
   );
   await tester.pumpAndSettle();

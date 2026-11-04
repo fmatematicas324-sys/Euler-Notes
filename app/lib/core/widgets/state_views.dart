@@ -11,10 +11,18 @@ class LoadingView extends StatelessWidget {
 }
 
 class ErrorView extends StatelessWidget {
-  const ErrorView({super.key, required this.error, required this.onRetry});
+  const ErrorView({
+    super.key,
+    required this.error,
+    required this.onRetry,
+    this.onConfigureServer,
+  });
 
   final Object error;
   final VoidCallback onRetry;
+
+  /// Si se indica, ante un error de conexión se ofrece «Configurar servidor».
+  final VoidCallback? onConfigureServer;
 
   @override
   Widget build(BuildContext context) {
@@ -37,6 +45,14 @@ class ErrorView extends StatelessWidget {
               icon: const Icon(Icons.refresh),
               label: const Text('Reintentar'),
             ),
+            if (onConfigureServer != null &&
+                error is ApiException &&
+                (error as ApiException).code == 'network_error')
+              TextButton.icon(
+                onPressed: onConfigureServer,
+                icon: const Icon(Icons.dns_outlined),
+                label: const Text('Configurar servidor'),
+              ),
           ],
         ),
       ),

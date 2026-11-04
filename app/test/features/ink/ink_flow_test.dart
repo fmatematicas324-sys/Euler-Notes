@@ -1,6 +1,6 @@
-import 'package:cuaderno_cientifico/features/ink/presentation/ink_canvas.dart';
-import 'package:cuaderno_cientifico/features/ink/presentation/ink_editor_screen.dart';
-import 'package:cuaderno_cientifico/features/ink/presentation/ink_preview.dart';
+import 'package:euler_notes/features/ink/presentation/ink_canvas.dart';
+import 'package:euler_notes/features/ink/presentation/ink_editor_screen.dart';
+import 'package:euler_notes/features/ink/presentation/ink_preview.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

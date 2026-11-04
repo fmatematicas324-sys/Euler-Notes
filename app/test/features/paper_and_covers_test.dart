@@ -1,7 +1,7 @@
-import 'package:cuaderno_cientifico/features/notebooks/domain/notebook_cover.dart';
-import 'package:cuaderno_cientifico/features/notebooks/presentation/cover_art.dart';
-import 'package:cuaderno_cientifico/features/notes/domain/paper_style.dart';
-import 'package:cuaderno_cientifico/features/notes/presentation/paper_background.dart';
+import 'package:euler_notes/features/notebooks/domain/notebook_cover.dart';
+import 'package:euler_notes/features/notebooks/presentation/cover_art.dart';
+import 'package:euler_notes/features/notes/domain/paper_style.dart';
+import 'package:euler_notes/features/notes/presentation/paper_background.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

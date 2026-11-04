@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'core/theme.dart';
 import 'features/notebooks/presentation/notebooks_screen.dart';
 
-class CuadernoApp extends StatelessWidget {
-  const CuadernoApp({super.key});
+class EulerNotesApp extends StatelessWidget {
+  const EulerNotesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Cuaderno Científico',
+      title: 'Euler Notes',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,

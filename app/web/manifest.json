@@ -1,11 +1,11 @@
 {
-    "name": "Cuaderno Científico",
-    "short_name": "Cuaderno",
+    "name": "Euler Notes",
+    "short_name": "Euler Notes",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0B3D91",
     "theme_color": "#0B3D91",
-    "description": "Cuaderno digital para escribir ciencia",
+    "description": "Euler Notes: cuaderno científico",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

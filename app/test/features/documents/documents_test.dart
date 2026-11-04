@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
-import 'package:cuaderno_cientifico/features/documents/data/documents_repository.dart';
-import 'package:cuaderno_cientifico/features/documents/presentation/document_viewer_screen.dart';
+import 'package:euler_notes/features/documents/data/documents_repository.dart';
+import 'package:euler_notes/features/documents/presentation/document_viewer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

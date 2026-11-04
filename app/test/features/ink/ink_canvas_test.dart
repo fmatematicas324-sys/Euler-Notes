@@ -1,8 +1,8 @@
 import 'dart:ui';
 
-import 'package:cuaderno_cientifico/features/ink/domain/ink_document.dart';
-import 'package:cuaderno_cientifico/features/ink/domain/stroke.dart';
-import 'package:cuaderno_cientifico/features/ink/presentation/ink_canvas.dart';
+import 'package:euler_notes/features/ink/domain/ink_document.dart';
+import 'package:euler_notes/features/ink/domain/stroke.dart';
+import 'package:euler_notes/features/ink/presentation/ink_canvas.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

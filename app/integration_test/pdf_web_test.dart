@@ -9,8 +9,8 @@
 //       --target=integration_test/pdf_web_test.dart \
 //       --dart-define=API_BASE_URL=http://127.0.0.1:8001 \
 //       --dart-define=PDF_NAME=muestra-web.pdf
-import 'package:cuaderno_cientifico/app.dart';
-import 'package:cuaderno_cientifico/features/notebooks/presentation/notebook_cover_card.dart';
+import 'package:euler_notes/app.dart';
+import 'package:euler_notes/features/notebooks/presentation/notebook_cover_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -56,7 +56,7 @@ void main() {
     binding.testTextInput.register();
     try {
       final title = 'Web ${DateTime.now().millisecondsSinceEpoch}';
-      await tester.pumpWidget(const ProviderScope(child: CuadernoApp()));
+      await tester.pumpWidget(const ProviderScope(child: EulerNotesApp()));
       await waitFor(
         tester,
         find.byWidgetPredicate(

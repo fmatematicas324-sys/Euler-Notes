@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import 'api_exception.dart';
 import 'config.dart';
+import 'server_settings.dart';
 
 /// Cliente REST mínimo para el backend local. Las features lo usan desde su
 /// capa `data/`; nunca desde widgets.
@@ -123,6 +124,10 @@ final httpClientProvider = Provider<http.Client>((ref) {
   return client;
 });
 
+/// Se reconstruye (y con él todos los repositorios) al cambiar el servidor.
 final apiClientProvider = Provider<ApiClient>(
-  (ref) => ApiClient(ref.watch(httpClientProvider)),
+  (ref) => ApiClient(
+    ref.watch(httpClientProvider),
+    baseUrl: ref.watch(serverUrlProvider),
+  ),
 );

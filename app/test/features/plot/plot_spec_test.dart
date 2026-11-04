@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:cuaderno_cientifico/features/plot/domain/plot_spec.dart';
+import 'package:euler_notes/features/plot/domain/plot_spec.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

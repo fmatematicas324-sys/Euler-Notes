@@ -1,5 +1,5 @@
-name: cuaderno_cientifico
-description: "Cuaderno digital para escribir ciencia"
+name: euler_notes
+description: "Euler Notes: cuaderno científico con LaTeX, cálculo simbólico, gráficas y escritura a mano"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -40,6 +40,7 @@ dependencies:
   markdown: ^7.3.1
   pdfrx: ^2.11.0
   file_selector: ^1.1.0
+  shared_preferences: ^2.5.6
 
 dev_dependencies:
   flutter_test:

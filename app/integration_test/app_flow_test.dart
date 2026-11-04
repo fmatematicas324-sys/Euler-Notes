@@ -12,13 +12,13 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:cuaderno_cientifico/app.dart';
-import 'package:cuaderno_cientifico/features/documents/data/documents_repository.dart';
-import 'package:cuaderno_cientifico/features/ink/presentation/ink_canvas.dart';
-import 'package:cuaderno_cientifico/features/ink/presentation/ink_preview.dart';
-import 'package:cuaderno_cientifico/features/notebooks/presentation/notebook_cover_card.dart';
-import 'package:cuaderno_cientifico/features/notes/presentation/markdown_preview.dart';
-import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
+import 'package:euler_notes/app.dart';
+import 'package:euler_notes/features/documents/data/documents_repository.dart';
+import 'package:euler_notes/features/ink/presentation/ink_canvas.dart';
+import 'package:euler_notes/features/ink/presentation/ink_preview.dart';
+import 'package:euler_notes/features/notebooks/presentation/notebook_cover_card.dart';
+import 'package:euler_notes/features/notes/presentation/markdown_preview.dart';
+import 'package:euler_notes/features/plot/presentation/figure_view.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -150,7 +150,7 @@ void main() {
                   ),
                 ),
             ],
-            child: const CuadernoApp(),
+            child: const EulerNotesApp(),
           ),
         ),
       );

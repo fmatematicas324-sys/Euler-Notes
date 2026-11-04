@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:cuaderno_cientifico/core/api_client.dart';
-import 'package:cuaderno_cientifico/core/api_exception.dart';
+import 'package:euler_notes/core/api_client.dart';
+import 'package:euler_notes/core/api_exception.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

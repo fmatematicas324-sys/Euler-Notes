@@ -1,5 +1,5 @@
-import 'package:cuaderno_cientifico/features/notebooks/domain/notebook_cover.dart';
-import 'package:cuaderno_cientifico/features/notebooks/presentation/notebook_cover_card.dart';
+import 'package:euler_notes/features/notebooks/domain/notebook_cover.dart';
+import 'package:euler_notes/features/notebooks/presentation/notebook_cover_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

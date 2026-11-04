@@ -5,6 +5,7 @@ import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/backend_status_icon.dart';
 import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/feedback.dart';
+import '../../../core/widgets/server_dialog.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../notes/presentation/notebook_screen.dart';
 import '../domain/notebook.dart';
@@ -85,10 +86,15 @@ class NotebooksScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         leading: const Padding(padding: EdgeInsets.all(12), child: AppLogo()),
-        title: const Text('Cuaderno Científico'),
+        title: const Text('Euler Notes'),
         actions: [
           BackendStatusIcon(
             onRetry: () => ref.invalidate(notebooksControllerProvider),
+          ),
+          IconButton(
+            tooltip: 'Servidor',
+            icon: const Icon(Icons.dns_outlined),
+            onPressed: () => showServerDialog(context),
           ),
         ],
       ),
@@ -102,6 +108,7 @@ class NotebooksScreen extends ConsumerWidget {
         error: (error, _) => ErrorView(
           error: error,
           onRetry: () => ref.invalidate(notebooksControllerProvider),
+          onConfigureServer: () => showServerDialog(context),
         ),
         data: (items) => items.isEmpty
             ? const EmptyView(

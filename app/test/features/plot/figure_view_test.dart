@@ -1,10 +1,10 @@
 import 'dart:convert';
 
-import 'package:cuaderno_cientifico/core/api_client.dart';
-import 'package:cuaderno_cientifico/features/plot/domain/figure_spec.dart';
-import 'package:cuaderno_cientifico/features/plot/domain/plot_spec.dart';
-import 'package:cuaderno_cientifico/features/plot/domain/diagram_spec.dart';
-import 'package:cuaderno_cientifico/features/plot/presentation/figure_view.dart';
+import 'package:euler_notes/core/api_client.dart';
+import 'package:euler_notes/features/plot/domain/figure_spec.dart';
+import 'package:euler_notes/features/plot/domain/plot_spec.dart';
+import 'package:euler_notes/features/plot/domain/diagram_spec.dart';
+import 'package:euler_notes/features/plot/presentation/figure_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';

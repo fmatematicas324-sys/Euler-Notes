@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PROVISIONAL (v0.3): el backend corre en un PC de la red local por HTTP sin
+     TLS. Antes de publicar, usar HTTPS y eliminar este permiso de texto plano
+     (ver la decisión pendiente sobre el backend en Android en docs/ROADMAP.md). -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

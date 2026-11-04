@@ -1,4 +1,4 @@
-"""Punto de entrada del backend de Cuaderno Científico.
+"""Punto de entrada del backend de Euler Notes.
 
 Arranque local:
     .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="Cuaderno Científico API", version=VERSION, lifespan=lifespan)
+    app = FastAPI(title="Euler Notes API", version=VERSION, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origin_regex=LOCALHOST_ORIGINS,
