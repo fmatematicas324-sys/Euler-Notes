@@ -195,6 +195,20 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   void _insertBlockFormula() =>
       _replaceSelection('${_blockPrefix()}\$\$\n', '\n\$\$\n');
 
+  void _insertPlot() {
+    final selected = _selection().textInside(_content.text).trim();
+    final expr = selected.isEmpty ? 'sin(x)' : selected;
+    final prefix = _blockPrefix();
+    final selection = _selection();
+    final block = '$prefix```plot\n$expr\nx: -2pi, 2pi\n```\n';
+    _content.value = TextEditingValue(
+      text: _content.text.replaceRange(selection.start, selection.end, block),
+      selection: TextSelection.collapsed(
+        offset: selection.start + block.length,
+      ),
+    );
+  }
+
   void _insertMath(String latex, {required bool display}) {
     if (display) {
       _replaceSelection('${_blockPrefix()}\$\$$latex\$\$\n', '');
@@ -277,6 +291,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         _EditorToolbar(
           onInlineFormula: _insertInlineFormula,
           onBlockFormula: _insertBlockFormula,
+          onPlot: _insertPlot,
           onCompute: _openCompute,
         ),
         const Divider(height: 1),
@@ -296,7 +311,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
                   'Escribe en Markdown.\n\n'
                   r'Fórmulas en línea: $E = mc^2$'
                   '\n'
-                  r'En bloque: $$\int_0^1 x^2\,dx$$',
+                  r'En bloque: $$\int_0^1 x^2\,dx$$'
+                  '\n'
+                  'Gráficas: un bloque ```plot con sin(x)',
             ),
           ),
         ),
@@ -347,11 +364,13 @@ class _EditorToolbar extends StatelessWidget {
   const _EditorToolbar({
     required this.onInlineFormula,
     required this.onBlockFormula,
+    required this.onPlot,
     required this.onCompute,
   });
 
   final VoidCallback onInlineFormula;
   final VoidCallback onBlockFormula;
+  final VoidCallback onPlot;
   final VoidCallback onCompute;
 
   @override
@@ -370,6 +389,11 @@ class _EditorToolbar extends StatelessWidget {
             onPressed: onBlockFormula,
             icon: const Icon(Icons.calculate_outlined),
             label: const Text(r'$$ Bloque'),
+          ),
+          TextButton.icon(
+            onPressed: onPlot,
+            icon: const Icon(Icons.show_chart),
+            label: const Text('Gráfica'),
           ),
           FilledButton.tonalIcon(
             onPressed: onCompute,

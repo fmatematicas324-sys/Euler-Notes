@@ -3,11 +3,14 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
 import '../../../core/widgets/math_formula.dart';
+import '../../plot/domain/plot_spec.dart';
+import '../../plot/presentation/plot_view.dart';
 
 /// Vista previa de Markdown con fórmulas LaTeX nativas:
 /// - `$...$` en línea (sin espacio junto a los `$`, para no confundir precios).
 /// - `$$...$$` en una línea propia (o varias) se muestra como bloque centrado.
 /// - `$$...$$` dentro de un párrafo se muestra en estilo display, en línea.
+/// - Un bloque ` ```plot ` se muestra como gráfica (ver [PlotSpec.parse]).
 class MarkdownPreview extends StatelessWidget {
   const MarkdownPreview({super.key, required this.data});
 
@@ -27,13 +30,37 @@ class MarkdownPreview extends StatelessWidget {
       data: data,
       padding: const EdgeInsets.all(16),
       extensionSet: md.ExtensionSet.gitHubFlavored,
-      blockSyntaxes: [MathBlockSyntax()],
+      blockSyntaxes: [PlotBlockSyntax(), MathBlockSyntax()],
       inlineSyntaxes: [MathInlineSyntax()],
       builders: {
         MathInlineSyntax.tag: _InlineMathBuilder(),
         MathBlockSyntax.tag: _BlockMathBuilder(),
+        PlotBlockSyntax.tag: _PlotBuilder(),
       },
     );
+  }
+}
+
+/// Bloque de código ` ```plot ` hasta la siguiente línea ` ``` `.
+class PlotBlockSyntax extends md.BlockSyntax {
+  static const tag = 'plot';
+  static final _start = RegExp(r'^\s*```\s*plot\s*$');
+  static final _end = RegExp(r'^\s*```\s*$');
+
+  @override
+  RegExp get pattern => _start;
+
+  @override
+  md.Node parse(md.BlockParser parser) {
+    parser.advance();
+    final lines = <String>[];
+    while (!parser.isDone) {
+      final line = parser.current.content;
+      parser.advance();
+      if (_end.hasMatch(line)) break;
+      lines.add(line);
+    }
+    return md.Element.empty(tag)..attributes['source'] = lines.join('\n');
   }
 }
 
@@ -139,5 +166,40 @@ class _BlockMathBuilder extends MarkdownElementBuilder {
         ),
       ),
     );
+  }
+}
+
+class _PlotBuilder extends MarkdownElementBuilder {
+  @override
+  bool isBlockElement() => true;
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final source = element.attributes['source'] ?? '';
+    try {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: PlotView(spec: PlotSpec.parse(source)),
+      );
+    } on FormatException catch (error) {
+      final colors = Theme.of(context).colorScheme;
+      return Container(
+        margin: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: colors.error),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          'Gráfica no válida: ${error.message}',
+          style: TextStyle(color: colors.error),
+        ),
+      );
+    }
   }
 }

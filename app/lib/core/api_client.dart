@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -29,9 +30,29 @@ class ApiClient {
 
   Future<void> delete(String path) => _send(() => _http.delete(_uri(path)));
 
+  /// POST con cuerpo JSON y respuesta binaria (p. ej. una imagen PNG).
+  Future<Uint8List> postForBytes(String path, Object body) async {
+    final response = await _request(
+      () =>
+          _http.post(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+    );
+    return response.bodyBytes;
+  }
+
   Uri _uri(String path) => _baseUri.resolve(path);
 
   Future<dynamic> _send(Future<http.Response> Function() request) async {
+    final response = await _request(request);
+    return response.body.isEmpty
+        ? null
+        : _decode(utf8.decode(response.bodyBytes));
+  }
+
+  /// Ejecuta la petición y convierte los fallos de red y las respuestas de
+  /// error del backend en [ApiException]. Devuelve la respuesta si es 2xx.
+  Future<http.Response> _request(
+    Future<http.Response> Function() request,
+  ) async {
     final http.Response response;
     try {
       response = await request();
@@ -41,12 +62,15 @@ class ApiClient {
         message: 'No se pudo conectar con el backend ($e)',
       );
     }
-
-    final body = response.body.isEmpty
-        ? null
-        : _decode(utf8.decode(response.bodyBytes));
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return body;
+      return response;
+    }
+
+    Object? body;
+    try {
+      body = jsonDecode(utf8.decode(response.bodyBytes));
+    } on FormatException {
+      body = null;
     }
     final error = body is Map<String, dynamic> ? body['error'] : null;
     if (error is Map<String, dynamic>) {

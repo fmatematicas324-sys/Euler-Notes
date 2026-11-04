@@ -96,6 +96,24 @@ void main() {
     await waitAutosave(tester);
   });
 
+  testWidgets('botón Gráfica inserta un bloque plot que se muestra', (
+    tester,
+  ) async {
+    await openEditor(tester);
+    final controller = tester.widget<TextField>(content()).controller!;
+    controller.selection = const TextSelection.collapsed(offset: 6);
+
+    await tester.tap(find.text('Gráfica'));
+    await tester.pumpAndSettle();
+
+    expect(
+      contentText(tester),
+      'Inicio\n\n```plot\nsin(x)\nx: -2pi, 2pi\n```\n',
+    );
+    expect(backend.plotRequests.single['exprs'], ['sin(x)']);
+    await waitAutosave(tester);
+  });
+
   testWidgets('panel de cálculo: calcular e insertar como bloque', (
     tester,
   ) async {

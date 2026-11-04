@@ -62,6 +62,48 @@ void main() {
     );
   });
 
+  test('postForBytes devuelve el cuerpo binario', () async {
+    final png = [0x89, 0x50, 0x4E, 0x47];
+    final client = ApiClient(
+      MockClient((request) async {
+        expect(jsonDecode(request.body), {
+          'exprs': ['x'],
+        });
+        return http.Response.bytes(
+          png,
+          200,
+          headers: {'content-type': 'image/png'},
+        );
+      }),
+    );
+    expect(
+      await client.postForBytes('/plot', {
+        'exprs': ['x'],
+      }),
+      png,
+    );
+  });
+
+  test('postForBytes convierte errores JSON en ApiException', () async {
+    final client = ApiClient(
+      MockClient(
+        (_) async => _json({
+          'error': {'code': 'compute_error', 'message': 'Sin valores reales'},
+        }, 422),
+      ),
+    );
+    await expectLater(
+      client.postForBytes('/plot', {
+        'exprs': ['sqrt(-1)'],
+      }),
+      throwsA(
+        isA<ApiException>()
+            .having((e) => e.code, 'code', 'compute_error')
+            .having((e) => e.statusCode, 'statusCode', 422),
+      ),
+    );
+  });
+
   test('DELETE con 204 sin cuerpo no falla', () async {
     final client = ApiClient(MockClient((_) async => http.Response('', 204)));
     await client.delete('/notes/1');

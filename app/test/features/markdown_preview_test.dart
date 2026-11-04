@@ -1,7 +1,12 @@
+import 'package:cuaderno_cientifico/core/api_client.dart';
 import 'package:cuaderno_cientifico/features/notes/presentation/markdown_preview.dart';
+import 'package:cuaderno_cientifico/features/plot/presentation/plot_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/fake_backend.dart';
 
 Future<void> _pump(WidgetTester tester, String data) => tester.pumpWidget(
   MaterialApp(
@@ -44,6 +49,40 @@ void main() {
     await _pump(tester, r'$\frac{1}$');
     expect(tester.takeException(), isNull);
     expect(find.textContaining(r'\frac{1}'), findsOneWidget);
+  });
+
+  testWidgets('bloque ```plot se muestra como gráfica', (tester) async {
+    final backend = FakeBackend();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [httpClientProvider.overrideWithValue(backend.client)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: MarkdownPreview(
+              data: 'Antes\n\n```plot\nsin(x)\nx: -pi, pi\n```\n\nDespués',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PlotView), findsOneWidget);
+    expect(find.text('Antes'), findsOneWidget);
+    expect(find.text('Después'), findsOneWidget);
+    expect(backend.plotRequests.single['exprs'], ['sin(x)']);
+  });
+
+  testWidgets('bloque ```plot inválido muestra el motivo', (tester) async {
+    await _pump(tester, '```plot\nx\nx: 3, 1\n```');
+    expect(find.byType(PlotView), findsNothing);
+    expect(find.textContaining('Gráfica no válida'), findsOneWidget);
+  });
+
+  testWidgets('otros bloques de código no son gráficas', (tester) async {
+    await _pump(tester, '```python\nprint(1)\n```');
+    expect(find.byType(PlotView), findsNothing);
+    expect(find.textContaining('print(1)'), findsOneWidget);
   });
 
   testWidgets('Markdown sin fórmulas y contenido vacío', (tester) async {
