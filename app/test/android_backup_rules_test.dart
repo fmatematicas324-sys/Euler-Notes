@@ -55,7 +55,7 @@ void main() {
     }
   });
 
-  test('las preferencias excluidas solo guardan URL y token', () {
+  test('las preferencias excluidas solo guardan URL, token y borradores', () {
     // Si se añaden más claves a shared_preferences, revisar si deben
     // respaldarse (y moverlas a otro almacén si es así).
     final source = File('lib/core/server_settings.dart').readAsStringSync();
@@ -75,6 +75,15 @@ void main() {
         )
         .map((f) => f.path.replaceAll(r'\', '/'))
         .toList();
-    expect(writers, ['lib/core/server_settings.dart']);
+    // Borradores de notas (Misión 013, ADR 21): son temporales (la nota real
+    // está en el servidor) y no deben salir del dispositivo, así que se
+    // quedan en este archivo excluido de las copias de seguridad.
+    expect(
+      writers,
+      unorderedEquals([
+        'lib/core/server_settings.dart',
+        'lib/features/notes/data/note_drafts.dart',
+      ]),
+    );
   });
 }
