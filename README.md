@@ -27,9 +27,10 @@ La fuente única es `app/pubspec.yaml` (`version: X.Y.Z+N`): `X.Y.Z` con version
 GitHub Actions (`ci.yml`) compila un APK de comprobación en cada push (artefacto de 7 días). Las releases solo se crean al subir un tag `vX.Y.Z`, como **borrador** (`release.yml`).
 La app usa el backend de un PC en la misma WiFi:
 ```bash
-cd backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers
-cat data/api_token   # token de acceso (se crea en el primer arranque)
+tool/install_service.sh                         # una vez: el backend arranca solo (systemd)
+cd backend && .venv/bin/python -m app.pair      # dirección y token (con QR) para la tablet
 ```
-En la app: icono de servidor → `http://IP-DEL-PC:8000` y el token. **Sin HTTPS, el token viaja sin cifrar**: usa solo redes de confianza. Detalles en [`docs/SERVER_SECURITY.md`](docs/SERVER_SECURITY.md).
+O a mano: `cd backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers`.
+En la app: icono de servidor → la dirección y el token. Guía completa (IP fija, cambiar el token, problemas frecuentes): [`docs/CONEXION.md`](docs/CONEXION.md). **Sin HTTPS, el token viaja sin cifrar**: usa solo redes de confianza. Detalles en [`docs/SERVER_SECURITY.md`](docs/SERVER_SECURITY.md).
 
 Más detalles en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) y [`docs/ROADMAP.md`](docs/ROADMAP.md).

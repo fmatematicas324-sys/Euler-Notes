@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         VERSION,
         tokens.source(),
     )
+    logger.info("Para conectar la tablet (dirección y token con QR): python -m app.pair")
     threading.Thread(target=start_worker_pool, daemon=True).start()
     yield
 
