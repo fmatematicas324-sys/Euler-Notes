@@ -52,6 +52,23 @@ def _diagram(client: TestClient, **payload):
         {"kind": "surface", "expr": "1/(x^2 + y^2)"},  # polo en el origen
         {"kind": "surface", "expr": "3"},  # plano constante
         {"kind": "surface", "expr": "u*v", "var_x": "u", "var_y": "v"},
+        {"kind": "contour", "expr": "x^2 - y^2"},
+        {"kind": "contour", "expr": "exp(-(x^2 + y^2))", "levels": 5, "filled": False},
+        {"kind": "contour", "expr": "1/(x^2 + y^2)", "theme": "dark"},  # polo
+        {"kind": "contour", "expr": "sqrt(4 - x^2 - y^2)"},  # dominio parcial
+        {"kind": "vector_field", "p": "-y", "q": "x"},  # rotación
+        {"kind": "vector_field", "p": "x", "q": "y", "mode": "streamlines"},  # fuente
+        {
+            "kind": "vector_field",
+            "p": "x/(x^2 + y^2)^(3/2)",
+            "q": "y/(x^2 + y^2)^(3/2)",
+            "mode": "streamlines",
+            "theme": "dark",
+        },  # campo eléctrico de una carga puntual
+        {"kind": "vector_field", "p": "0", "q": "0"},  # campo nulo: sin flechas
+        {"kind": "curve3d", "x": "cos(t)", "y": "sin(t)", "z": "t/5", "t_max": 12.566},
+        {"kind": "curve3d", "x": "s", "y": "s^2", "z": "0", "var": "s", "t_min": -2, "t_max": 2},
+        {"kind": "curve3d", "x": "sqrt(t)", "y": "ln(t)", "z": "t", "t_min": -1, "t_max": 3},
     ],
 )
 def test_diagram_kinds(client: TestClient, payload: dict) -> None:
@@ -81,6 +98,12 @@ def test_unknown_kind(client: TestClient) -> None:
         {"kind": "graph", "edges": [{"source": "A", "target": "B;C"}]},
         {"kind": "surface", "expr": "x*y", "var_x": "x", "var_y": "x"},
         {"kind": "surface", "expr": "x*y", "y_min": 2, "y_max": 1},
+        {"kind": "contour", "expr": "x*y", "levels": 2},
+        {"kind": "contour", "expr": "x*y", "var_x": "y", "var_y": "y"},
+        {"kind": "vector_field", "p": "x"},
+        {"kind": "vector_field", "p": "x", "q": "y", "mode": "flechas"},
+        {"kind": "curve3d", "x": "t", "y": "t", "z": "t", "t_min": 5, "t_max": 1},
+        {"kind": "curve3d", "x": "t", "y": "t"},
     ],
 )
 def test_invalid_diagrams(client: TestClient, payload: dict) -> None:
@@ -132,3 +155,44 @@ def test_surface_without_real_values_fails_cleanly(client: TestClient) -> None:
     response = _diagram(client, kind="surface", expr="sqrt(-1 - x^2 - y^2)")
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "compute_error"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"kind": "contour", "expr": "a*x + y"},
+        {"kind": "vector_field", "p": "x", "q": "k*y"},
+        {"kind": "curve3d", "x": "t", "y": "x", "z": "t"},
+        {"kind": "vector_field", "p": "__import__('os')", "q": "y"},
+    ],
+)
+def test_new_kinds_reject_extra_symbols(client: TestClient, payload: dict) -> None:
+    response = client.post("/diagram", json=payload)
+    assert response.status_code == 400, response.text
+    assert response.json()["error"]["code"] == "invalid_expression"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"kind": "contour", "expr": "sqrt(-1 - x^2)"},
+        {"kind": "vector_field", "p": "sqrt(-1 - x^2)", "q": "sqrt(-1 - y^2)"},
+        {"kind": "curve3d", "x": "sqrt(-1 - t^2)", "y": "t", "z": "t"},
+    ],
+)
+def test_new_kinds_without_real_values(client: TestClient, payload: dict) -> None:
+    response = client.post("/diagram", json=payload)
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "compute_error"
+
+
+def test_vector_label_has_divergence_and_curl() -> None:
+    import sympy as sp
+
+    from app.services.diagrams import _vector_label
+
+    x, y = sp.symbols("x y")
+    label = _vector_label(-y, x, x, y)
+    assert "nabla" in label  # mathtext válido
+    assert "= 0" in label  # div(-y, x) = 0
+    assert "= 2" in label  # rot(-y, x)_z = 2

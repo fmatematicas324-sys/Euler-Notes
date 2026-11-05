@@ -181,21 +181,18 @@ class GraphDiagram(FigureOptions):
     directed: bool = False
 
 
-class SurfaceDiagram(FigureOptions):
-    """Superficie z = f(x, y) en 3D, con curvas de nivel opcionales en la base."""
+class PlaneRegion(FigureOptions):
+    """Región rectangular del plano para funciones de dos variables."""
 
-    kind: Literal["surface"]
-    expr: Expression
     var_x: VariableName = "x"
     var_y: VariableName = "y"
     x_min: Coordinate = -5.0
     x_max: Coordinate = 5.0
     y_min: Coordinate = -5.0
     y_max: Coordinate = 5.0
-    contours: bool = True
 
     @model_validator(mode="after")
-    def _check_ranges(self) -> "SurfaceDiagram":
+    def _check_region(self) -> "PlaneRegion":
         if self.var_x == self.var_y:
             raise ValueError("var_x y var_y deben ser variables distintas")
         if self.x_min >= self.x_max:
@@ -205,8 +202,59 @@ class SurfaceDiagram(FigureOptions):
         return self
 
 
+class SurfaceDiagram(PlaneRegion):
+    """Superficie z = f(x, y) en 3D, con curvas de nivel opcionales en la base."""
+
+    kind: Literal["surface"]
+    expr: Expression
+    contours: bool = True
+
+
+class ContourDiagram(PlaneRegion):
+    """Curvas de nivel f(x, y) = c en el plano, rellenas o solo líneas."""
+
+    kind: Literal["contour"]
+    expr: Expression
+    levels: Annotated[int, Field(ge=3, le=40)] = 12
+    filled: bool = True
+
+
+class VectorFieldDiagram(PlaneRegion):
+    """Campo vectorial F = (P, Q) en el plano: flechas o líneas de campo."""
+
+    kind: Literal["vector_field"]
+    p: Expression
+    q: Expression
+    mode: Literal["arrows", "streamlines"] = "arrows"
+
+
+class Curve3DDiagram(FigureOptions):
+    """Curva paramétrica r(t) = (x(t), y(t), z(t)) en el espacio."""
+
+    kind: Literal["curve3d"]
+    x: Expression
+    y: Expression
+    z: Expression
+    var: VariableName = "t"
+    t_min: Coordinate = 0.0
+    t_max: Coordinate = 10.0
+
+    @model_validator(mode="after")
+    def _check_range(self) -> "Curve3DDiagram":
+        if self.t_min >= self.t_max:
+            raise ValueError("t_min debe ser menor que t_max")
+        return self
+
+
 DiagramRequest = Annotated[
-    FunctionDiagram | ForcesDiagram | ProjectileDiagram | GraphDiagram | SurfaceDiagram,
+    FunctionDiagram
+    | ForcesDiagram
+    | ProjectileDiagram
+    | GraphDiagram
+    | SurfaceDiagram
+    | ContourDiagram
+    | VectorFieldDiagram
+    | Curve3DDiagram,
     Field(discriminator="kind"),
 ]
 

@@ -187,4 +187,71 @@ void main() {
       );
     }
   });
+
+  test('curvas de nivel: niveles y sin relleno', () {
+    final json = _json(
+      DiagramSpec.parse(
+        'tipo: Curvas de nivel\nf: x^2 - y^2\nniveles: 8\nrelleno: no',
+      ),
+    );
+    expect(json['kind'], 'contour');
+    expect(json['levels'], 8);
+    expect(json['filled'], false);
+    expect(json['x_min'], -5.0);
+  });
+
+  test('campo vectorial: componentes, rangos y líneas de campo', () {
+    final json = _json(
+      DiagramSpec.parse(
+        'tipo: campo vectorial\nP: -y\nQ: x\nx: -2, 2\ny: -1, 1\nmodo: líneas',
+      ),
+    );
+    expect(json, {
+      'kind': 'vector_field',
+      'p': '-y',
+      'q': 'x',
+      'var_x': 'x',
+      'var_y': 'y',
+      'x_min': -2.0,
+      'x_max': 2.0,
+      'y_min': -1.0,
+      'y_max': 1.0,
+      'mode': 'streamlines',
+    });
+  });
+
+  test('curva 3d: hélice con rango en pi y otro parámetro', () {
+    final helix = _json(
+      DiagramSpec.parse(
+        'tipo: Curva 3D\nx: cos(t)\ny: sin(t)\nz: t/5\nt: 0, 4pi',
+      ),
+    );
+    expect(helix['kind'], 'curve3d');
+    expect(helix['var'], 't');
+    expect(helix['t_max'] as double, closeTo(4 * math.pi, 1e-12));
+
+    final other = _json(
+      DiagramSpec.parse('tipo: curva\nx: s\ny: s^2\nz: 0\nvar: s\ns: -1, 1'),
+    );
+    expect(other['var'], 's');
+    expect(other['t_min'], -1.0);
+  });
+
+  test('tipos nuevos: errores claros', () {
+    for (final source in [
+      'tipo: curvas de nivel\nf: x*y\nniveles: 2',
+      'tipo: curvas de nivel\nf: x*y\nniveles: muchos',
+      'tipo: campo vectorial\nP: -y',
+      'tipo: campo vectorial\nP: -y\nQ: x\nmodo: espiral',
+      'tipo: campo vectorial\nP: -y\nQ: x\nvars: p, q',
+      'tipo: curva 3d\nx: t\ny: t',
+      'tipo: curva 3d\nx: t\ny: t\nz: t\nvar: x',
+    ]) {
+      expect(
+        () => DiagramSpec.parse(source),
+        throwsFormatException,
+        reason: source,
+      );
+    }
+  });
 }
