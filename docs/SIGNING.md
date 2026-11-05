@@ -1,7 +1,37 @@
 # Firma del APK — estado actual y procedimiento
 
-> Estado: **documento informativo**. No se ha generado ni cambiado ninguna clave. `build.gradle.kts` no se ha modificado.
+> Estado (Misión 010, 2026-11-05): **el código ya está preparado** (`build.gradle.kts`, `ci.yml` y `release.yml`). **Falta que generes la clave y la subas a los secretos** (§0). Hasta entonces, todo sigue firmándose con la clave debug temporal.
 > Marcas: **[H]** hecho comprobado · **[Hip]** hipótesis · **[P]** propuesta pendiente de aprobación.
+
+## 0. Lo que tienes que hacer tú (una sola vez, ≈20 min)
+
+En tu Fedora, **fuera de la carpeta del repositorio** (por ejemplo en `~/DESARROLLO/CLAVES_EULER/`):
+
+```bash
+mkdir -p ~/DESARROLLO/CLAVES_EULER && cd ~/DESARROLLO/CLAVES_EULER
+keytool -genkeypair -v -keystore euler-notes-upload.jks \
+  -keyalg RSA -keysize 4096 -validity 10000 -alias upload
+```
+- Te pedirá una contraseña (mínimo 6 caracteres; usa una larga) y unos datos (nombre, organización...). Puedes poner tu nombre y dejar el resto vacío.
+- Apunta la huella pública y cópiala en §1 de este documento:
+  ```bash
+  keytool -list -v -keystore euler-notes-upload.jks -alias upload | grep SHA256
+  ```
+
+**Copias de seguridad** (§2.2): el `.jks` y la contraseña en al menos dos sitios (USB guardado y gestor de contraseñas). **Si se pierde la clave, habrá que desinstalar otra vez.**
+
+**Subir los secretos a GitHub** (con `gh` en Fedora, desde la carpeta del repo):
+```bash
+gh secret set ANDROID_KEYSTORE_BASE64 < <(base64 -w0 ~/DESARROLLO/CLAVES_EULER/euler-notes-upload.jks)
+gh secret set ANDROID_KEYSTORE_PASSWORD   # pega la contraseña del almacén
+gh secret set ANDROID_KEY_PASSWORD        # la misma, salvo que pusieras otra para la clave
+gh secret set ANDROID_KEY_ALIAS --body upload
+```
+O desde la web: repositorio → *Settings* → *Secrets and variables* → *Actions* → *New repository secret*, con esos cuatro nombres.
+
+**Comprobación:** en el siguiente CI, el paso «Huella del certificado del APK» debe mostrar la misma huella SHA-256 que anotaste, y ya no aparecerá el aviso «Sin secretos de firma».
+
+**Última desinstalación:** el primer APK con la clave estable exige desinstalar una vez la app (§3). A partir de ahí, todos se instalan encima.
 
 ## 1. Estado actual
 
@@ -26,7 +56,7 @@
 - **[Hip]** Habrá que desinstalar la v0.4.0 una vez, cuando llegue un APK firmado con una clave estable. Hoy eso no pierde datos (están en el PC); solo se pierden la URL del servidor y, en el futuro, el token guardados en el dispositivo.
 - Por eso conviene fijar la clave **antes** de que exista almacenamiento local (Etapa 2).
 
-## 2. Procedimiento propuesto [P] — no ejecutado
+## 2. Procedimiento — código implementado en la Misión 010; la clave la generas tú (§0)
 
 ### 2.1 Generar la clave (en tu PC, nunca en CI ni en esta sesión)
 ```bash
@@ -44,11 +74,12 @@ keytool -list -v -keystore euler-notes-upload.jks -alias upload   # anotar la hu
 
 Verificación periódica: comprobar con `keytool -list` que cada copia abre y que su huella coincide.
 
-### 2.3 Uso en CI (requiere aprobación y un cambio en `build.gradle.kts`)
+### 2.3 Uso en CI ✅ implementado (Misión 010)
 - Secretos del repositorio: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`.
-- Solo `release.yml` los usaría; `ci.yml` seguiría con la firma debug.
-- El job crea `key.properties` y el `.jks` en el runner, y los borra al terminar. Ambos ya están en `.gitignore`.
-- Gradle usa `key.properties` si existe y, si no, la firma debug (así las compilaciones locales y de PR siguen funcionando).
+- **Los usan `ci.yml` y `release.yml`.** Cambio respecto a la propuesta inicial (solo `release.yml`): las pruebas en la tablet se hacen con el APK de `ci.yml`, y si ese APK usara otra clave habría que desinstalar en cada prueba. Los forks no reciben los secretos y siguen con la clave debug.
+- El job crea `key.properties` y el `.jks` en el runner (permisos 077) y los borra al terminar (`if: always()`). Ambos están en `app/android/.gitignore`.
+- Gradle usa `android/key.properties` si existe y, si no, la firma debug: las compilaciones locales y de forks siguen funcionando.
+- Sin secretos, el workflow emite un aviso visible y sigue con la clave debug.
 
 ### 2.4 Recuperación
 | Situación | Qué hacer |
@@ -78,5 +109,5 @@ Verificación periódica: comprobar con `keytool -list` que cada copia abre y qu
 **Cuándo hacerlo:** antes de la Etapa 2. Cuando los datos vivan en el dispositivo, desinstalar los borraría.
 
 ## 4. Pendiente de decisión
-- Aprobar la generación de la clave (la generas tú) y el cambio en `build.gradle.kts`.
+- ~~Aprobar la generación de la clave y el cambio en `build.gradle.kts`~~: aprobado en la Misión 010; falta generar la clave (§0).
 - Decidir si se publicará en Google Play. Si es así, conviene Play App Signing desde el principio.

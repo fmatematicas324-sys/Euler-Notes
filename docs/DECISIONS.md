@@ -40,8 +40,10 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - La tinta se guarda como trazos vectoriales en coordenadas de página.
 - Las notas Markdown actuales se conservan como objeto "bloque de texto" (no se elimina ninguna función).
 
-## ADR 15 — Firma propia del APK en los secretos de CI · **Propuesta**
-- **[P]** El dueño genera la clave de firma fuera de CI y la guarda en los secretos de GitHub. Las compilaciones de PR o forks siguen usando la clave debug.
+## ADR 15 — Firma propia del APK en los secretos de CI · **Aceptada** (Misión 010)
+- El dueño genera la clave de firma fuera de CI y la guarda en los secretos de GitHub. Las compilaciones de forks siguen usando la clave debug.
+- La usan `ci.yml` **y** `release.yml`: el APK de comprobación es el que se instala en la tablet para probar, y con otra clave obligaría a desinstalar en cada prueba (pasó en la Misión 008).
+- Gradle firma con `android/key.properties` si existe; si no, con la clave debug.
 - Hay que hacerlo **antes** de la Etapa 2: cambiar de clave obliga a desinstalar una vez, y después de la migración eso borraría los datos locales.
 
 ## ADR 16 — Versión única del producto · **Aceptada** (Misión 003)
