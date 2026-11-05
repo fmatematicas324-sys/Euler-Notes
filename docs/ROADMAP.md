@@ -1,6 +1,8 @@
-# Cuaderno Científico — Roadmap
+# Euler Notes (Cuaderno Científico) — Roadmap
 
-> Versión del documento: v0.1 · Estado: borrador aprobado (Fase 0)
+> Versión del documento: v0.2 (Misión 002, 2026-11-05).
+> Fases 0–4: historial. Etapas 0–7: plan nuevo. Las etapas ⏳ **no están autorizadas** salvo que se indique.
+> Detalle: `TASKS.md` · decisiones: `DECISIONS.md` · investigación: `product_research/`.
 
 ## Fase 0 — Cimientos
 - [x] Reglas del proyecto (`CLAUDE.md`).
@@ -82,9 +84,37 @@ El backend Python (FastAPI + SymPy + matplotlib) corre hoy en el mismo equipo qu
 2. **Python embebido en el APK** (p. ej. Chaquopy o `serious_python`): funciona sin conexión, pero el APK pesa más (unos 50–100 MB) y la compilación se complica.
 3. **Pasar el cálculo a Dart:** funciona sin conexión y el APK es ligero, pero no hay un equivalente maduro de SymPy.
 
-La decisión irá en un ADR en ARCHITECTURE §9.
+Se eligió la opción 1 como solución provisional (ADR 9). El objetivo aprobado en la Misión 002 es funcionar sin conexión y sin PC (ADR 10–14, propuestas).
 
-## Más adelante (v0.5+)
-- Exportar notas a Markdown y PDF.
-- Búsqueda de texto en notas y PDFs.
-- Sincronización opcional entre dispositivos, etiquetas y enlaces entre notas.
+---
+
+# Plan nuevo (Misión 002)
+
+## Etapa 0 — Limpieza controlada ⏳ (plan en `TASKS.md`)
+- Unificar nombre y versiones; ramas y tags; pytest en CI; firma propia del APK; tiempos de espera HTTP; seguridad del servidor.
+- **Salida:** `master` al día, tags históricos, CI con Flutter + pytest y un APK firmado con clave propia.
+
+## Etapa 1 — Competencia e identidad ✅ (documentada, pendiente de validación)
+- Informes de 6 apps, matriz, visión y priorización en `product_research/`.
+
+## Etapa 2 — v0.5 Sin conexión ⏳ (no autorizada)
+- Prototipo Drift → SQLite local (cuadernos, notas, tinta, documentos) → guardado automático fiable → importar desde el servidor → servidor opcional solo para cálculo.
+- **Salida:** APK que funciona sin PC con todas las funciones de escritura. El cálculo y las gráficas avanzadas siguen necesitando el servidor.
+
+## Etapa 3 — v0.6 Lienzo científico ⏳ (no autorizada)
+- Páginas A4/Carta/infinita, zoom, tinta vectorial, lazo, borrador parcial y objetos (texto, fórmula, imagen, figura).
+
+## Etapa 4 — v0.7 PDF científico ⏳
+- Anotar sobre PDF, pantalla dividida, recorte enlazado y búsqueda (FTS5).
+
+## Etapa 5 — Cálculo en el dispositivo ⏳ (requiere el estudio de la ADR 13)
+- Gráficas en Dart sin conexión; según los prototipos, Python embebido (serious_python o Chaquopy).
+
+## Etapa 6 — Exportar y respaldar ⏳
+- PDF, Markdown y LaTeX; copia de seguridad `.eulernotes`. Sincronización (PowerSync u otra) después de la v1.0.
+
+## Etapa 7 — v1.0 Pulido para tablet ⏳
+- Diseño adaptable, pruebas en una tablet real con lápiz, rendimiento y accesibilidad.
+
+## Más adelante
+- Fórmula manuscrita → LaTeX, unidades físicas, audio sincronizado, etiquetas y enlaces entre notas.

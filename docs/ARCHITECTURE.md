@@ -156,6 +156,9 @@ Descartados a propósito en v0.1: ORM, router de navegación, Docker y generaci�
 - **Tests:** todo endpoint y servicio nuevo lleva su test; una tarea no está terminada sin `pytest` y `flutter analyze/test` en verde.
 
 ## 9. Decisiones de arquitectura (ADR resumidas)
+
+> Desde la Misión 002, el registro principal es `docs/DECISIONS.md` (incluye las propuestas ADR 10–15).
+
 | # | Decisión | Motivo |
 |---|---|---|
 | 1 | Backend Python local en lugar de solo Dart | SymPy no tiene equivalente maduro en Dart. |
