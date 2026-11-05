@@ -20,6 +20,9 @@ export PATH="$HOME/development/flutter/bin:$PATH"
 flutter doctor
 ```
 
+### Código generado (Drift)
+La base de datos local usa Drift: tras `flutter pub get`, ejecuta `dart run build_runner build --delete-conflicting-outputs` en `app/`. Los `*.g.dart` no se guardan en el repositorio; CI los genera.
+
 ## Versiones
 La fuente única es `app/pubspec.yaml` (`version: X.Y.Z+N`): `X.Y.Z` con versionado semántico y `N` = número de compilación (versionCode de Android), que sube en cada release y nunca se reutiliza. `backend/pyproject.toml` lleva la misma `X.Y.Z`; `python3 tool/check_versions.py` lo comprueba (también en CI). Cambios: [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
