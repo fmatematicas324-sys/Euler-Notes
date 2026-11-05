@@ -32,6 +32,8 @@ Funciones (`app/lib/features`): `notebooks`, `notes`, `compute`, `plot`, `docume
 - **[Hip]** Esos tags se crearon solo en el equipo local del autor y nunca se subieron.
 
 ## 5. Problemas abiertos (priorizados)
+> Actualización Misión 003: resueltos el 3 (token + filtro de origen; falta TLS), el 4 (tiempos de espera), el 5 (límite de 2 tareas), el 7 (releases solo con tags y como borrador) y el 8 (versión única 0.4.0, ADR 16). El 6 está documentado en `docs/SIGNING.md`, sin cambiar la firma.
+
 1. **[H]** Dependencia total del backend: sin datos locales.
 2. **[H]** Si falla un guardado, el texto queda solo en memoria. **[Hip]** Si se cierra la app sin conexión, se pierde.
 3. **[H]** El servidor no tiene autenticación ni TLS. Al usar `--host 0.0.0.0`, cualquiera en la red local puede leer, borrar y subir PDF.

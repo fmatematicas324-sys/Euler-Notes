@@ -58,6 +58,25 @@ Verificación periódica: comprobar con `keytool -list` que cada copia abre y qu
 | La app está en Google Play con Play App Signing | La clave pública de la app la custodia Google; se pide a Google restablecer la **clave de subida** |
 | Se filtra la clave | Generar una clave nueva y revocar los secretos. **[P]** Valorar Play App Signing |
 
-## 3. Pendiente de decisión
+## 3. Migración a la clave estable [P] — no ejecutada
+
+**Punto de partida [H]:** la v0.4.0 instalada está firmada con una clave debug que ya no existe. Android **no permite** instalar encima un APK con otra firma: muestra "La app no se ha instalado" o "conflicto con un paquete existente" **[C]**. No hay forma de "migrar" la firma de una app instalada sin la clave original (la rotación de claves de APK Signature Scheme v3 necesita la clave antigua para firmar el certificado nuevo **[C]**).
+
+**Por tanto, la primera versión con la clave estable exige desinstalar una vez.** Procedimiento:
+
+1. **Antes de publicar** la versión firmada (p. ej. `v0.4.1+5`):
+   - Comprobar la huella del APK del borrador: `apksigner verify --print-certs euler-notes-0.4.1.apk` debe mostrar la huella anotada en §2.1.
+   - Avisar en las notas de la release: "Esta versión cambia la firma: desinstala la anterior primero".
+2. **En cada dispositivo:**
+   1. Anotar la dirección del servidor y el token (Servidor → Token, botón "Mostrar"), o tenerlos a mano en el PC (`backend/data/api_token`).
+   2. Desinstalar Euler Notes (Ajustes → Aplicaciones → Euler Notes → Desinstalar).
+   3. Instalar el APK nuevo.
+   4. Volver a configurar el servidor y el token.
+3. **Qué se pierde:** solo la configuración del dispositivo (URL y token). Los cuadernos, notas, dibujos y PDF están en el PC **[H]** y no se tocan.
+4. **A partir de ahí**, todas las versiones firmadas con la misma clave se instalan encima, sin desinstalar, siempre que `N` (versionCode) sea mayor.
+
+**Cuándo hacerlo:** antes de la Etapa 2. Cuando los datos vivan en el dispositivo, desinstalar los borraría.
+
+## 4. Pendiente de decisión
 - Aprobar la generación de la clave (la generas tú) y el cambio en `build.gradle.kts`.
 - Decidir si se publicará en Google Play. Si es así, conviene Play App Signing desde el principio.

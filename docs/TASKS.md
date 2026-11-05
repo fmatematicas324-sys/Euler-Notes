@@ -7,7 +7,7 @@ Estado: ⏳ pendiente de aprobación · 🔜 aprobada, sin empezar · 🚧 en cu
 
 ## Etapa 0 — Limpieza controlada (plan; ninguna acción ejecutada)
 
-### 0.1 Unificar nombres y versiones ⏳
+### 0.1 Unificar nombres y versiones ✅ (Misión 003, paso B; ADR 16)
 | Acción | Detalle | Riesgo |
 |---|---|---|
 | Elegir el nombre | **[P]** "Euler Notes" como nombre comercial y "Cuaderno Científico" como descripción | Bajo. Requiere tu decisión. |
@@ -15,7 +15,7 @@ Estado: ⏳ pendiente de aprobación · 🔜 aprobada, sin empezar · 🚧 en cu
 | Textos visibles | Título web (`index.html`, `manifest.json`), ejecutable de Linux, README, CLAUDE.md | Bajo |
 | **No tocar** `applicationId` (`dev.eulernotes.euler_notes`) | Cambiarlo crea "otra app" en Android | Alto si se cambia |
 
-### 0.2 Ramas y tags ⏳
+### 0.2 Ramas y tags ◐ workflow ✅ (paso A) · PR preparado sin fusionar · tags históricos ⏳ (decisión provisional: v0.1.0→`f051026`, v0.2.0→original de Fedora si existe, v0.3.0→`d397094`; no crear todavía)
 **Hechos [H]:**
 - `master` = `df2c80d`.
 - La rama de trabajo va por delante con `b14fcb2` y los documentos.
@@ -28,7 +28,7 @@ Estado: ⏳ pendiente de aprobación · 🔜 aprobada, sin empezar · 🚧 en cu
 | Cambiar el workflow: compilar en cada push (solo artefacto) y **publicar release solo con tag `v*` o ejecución manual** | **[H]** Hoy cada push que toca `app/` vuelve a publicar en `v0.4.0` y puede sobrescribir el APK ya publicado |
 | Política de ramas: `master` estable, `feature/*` y PR obligatorio | Ninguno |
 
-### 0.3 pytest en GitHub Actions ⏳
+### 0.3 pytest en GitHub Actions ✅ (paso A: `ci.yml`, Python 3.12 y 3.13 + Ruff)
 - **[P]** Añadir un job `backend` con Python 3.12 y 3.13: `pip install -e "backend[dev]"`, `ruff check` y `pytest`.
 - Riesgos:
   - **[Hip]** `forkserver` y `RLIMIT_AS` funcionan en `ubuntu-latest` (es Linux), pero hay que comprobarlo en el primer run.
@@ -36,7 +36,7 @@ Estado: ⏳ pendiente de aprobación · 🔜 aprobada, sin empezar · 🚧 en cu
   - Duración estimada **[Hip]**: 2–4 min.
 - Añadir también Flutter `analyze` y `test` como job de PR, separado del de compilar el APK.
 
-### 0.4 Firma del APK ⏳ (relacionada con la ADR 15)
+### 0.4 Firma del APK ◐ documentada en `docs/SIGNING.md` (estado, respaldo y migración); clave y `build.gradle.kts` ⏳ sin tocar
 1. Tú generas una clave en tu equipo: `keytool -genkey -v -keystore euler-upload.jks -keyalg RSA -keysize 4096 -validity 10000 -alias upload`.
 2. La subes a los secretos de GitHub: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` y `ANDROID_KEY_PASSWORD`.
 3. `build.gradle.kts` lee `key.properties`, que se crea en CI. Si no existe, usa la firma debug.
@@ -46,7 +46,7 @@ Estado: ⏳ pendiente de aprobación · 🔜 aprobada, sin empezar · 🚧 en cu
 - La primera instalación con la clave nueva exige desinstalar la v0.4.0. Hoy no se pierde nada, porque los datos viven en el PC.
 - **No subas nunca la clave al repositorio** (`.gitignore` ya excluye `*.jks` y `key.properties`).
 
-### 0.5 Tiempos de espera HTTP ⏳
+### 0.5 Tiempos de espera HTTP ✅ (paso C)
 - **[H]** Todas las peticiones pasan por `ApiClient._send`, así que hay un solo punto de cambio.
 - **[P]** Añadir `.timeout()` por tipo de petición:
 
@@ -63,7 +63,7 @@ Estado: ⏳ pendiente de aprobación · 🔜 aprobada, sin empezar · 🚧 en cu
   - Cortar subidas grandes en una WiFi lenta.
   - **[Hip]** `http` 1.6 no cancela de verdad la petición: el `Future` caduca pero la conexión puede seguir abierta.
 
-### 0.6 Seguridad del servidor ⏳
+### 0.6 Seguridad del servidor ✅ token + filtro de origen + límite de tareas (paso D; ADR 17). TLS y `flutter_secure_storage` ⏳ con propuesta aparte (`docs/SERVER_SECURITY.md`)
 **Hechos [H]:**
 - Por defecto escucha en `127.0.0.1`, pero la guía de Android indica `--host 0.0.0.0`.
 - No pide autenticación y no usa TLS.

@@ -44,6 +44,18 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - **[P]** El dueño genera la clave de firma fuera de CI y la guarda en los secretos de GitHub. Las compilaciones de PR o forks siguen usando la clave debug.
 - Hay que hacerlo **antes** de la Etapa 2: cambiar de clave obliga a desinstalar una vez, y después de la migración eso borraría los datos locales.
 
+## ADR 16 — Versión única del producto · **Aceptada** (Misión 003)
+- Fuente única: `app/pubspec.yaml`, `version: X.Y.Z+N`. `X.Y.Z` usa versionado semántico; `N` es el número de compilación (versionCode de Android), sube en cada release de distribución y nunca se reutiliza.
+- `backend/pyproject.toml` lleva la misma `X.Y.Z`. `tool/check_versions.py` lo comprueba en CI y comprueba también que el tag `vX.Y.Z` coincide en `release.yml`.
+- Las releases solo se crean con tags y como **borrador**.
+
+## ADR 17 — Autenticación del backend por token compartido · **Aceptada** (Misión 003)
+- Token obligatorio en todas las rutas salvo `/health` (sin datos sensibles) y la documentación, **también desde el propio equipo**.
+- El filtro de origen (loopback y redes privadas) es una defensa adicional, **no** un sustituto del token.
+- Límite de 2 tareas aisladas simultáneas (503 si no hay hueco).
+- El token no se incrusta en el código ni en `--dart-define` de producción; lo introduce el usuario.
+- Pendiente: TLS y almacenamiento cifrado (`flutter_secure_storage`), cada uno con su propuesta.
+
 ## Decisiones aplazadas
 - Sincronización (PowerSync, servidor propio o CRDT): después del MVP sin conexión.
 - Reconocimiento de escritura a mano y de fórmulas (ML Kit Digital Ink, MyScript SDK u otro modelo): requiere estudiar licencias y funcionamiento sin conexión.

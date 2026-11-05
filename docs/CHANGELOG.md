@@ -7,7 +7,14 @@ Formato basado en *Keep a Changelog*. Versionado semántico. Reconstruido a part
 - CI separado de las releases: `ci.yml` (Ruff, pytest, Flutter y APK de comprobación con 7 días de retención) y `release.yml` (solo tags `vX.Y.Z`, como borrador).
 - Versión del backend sincronizada con la del producto (`0.4.0`), leída de `pyproject.toml`.
 - Variables de entorno con prefijo `EULER_` (se siguen aceptando las `CUADERNO_`).
+### Seguridad
+- **Token de acceso obligatorio** (`Authorization: Bearer`) en todas las rutas salvo `/health` y la documentación, también desde el propio equipo. Se genera en `backend/data/api_token` (0600) o se fija con `EULER_API_TOKEN`; la consola indica dónde está sin mostrarlo.
+- Filtro de origen: solo loopback y redes privadas (403), configurable con `EULER_ALLOWED_NETWORKS`. Defensa adicional, no sustituye al token.
+- Máximo 2 tareas aisladas simultáneas (`EULER_MAX_PARALLEL_TASKS`); si no hay hueco, 503 `server_busy`.
+- App: campo «Token de acceso» (oculto) en el diálogo del servidor; «Probar conexión» valida el token con `/auth/check`.
 ### Añadido
+- Ruta `GET /auth/check`.
+- `docs/SERVER_SECURITY.md`: procedimientos, riesgos y estudio de `flutter_secure_storage`.
 - Tiempos de espera HTTP centralizados en `ApiClient` (`ApiTimeouts`): 3 s `/health`, 10 s CRUD, 15 s `/compute`, 30 s gráficas, 60 s descarga y 120 s subida de PDF. Al agotarse: `ApiException(code: 'timeout')`.
 - `tool/check_versions.py`: comprueba que `pubspec.yaml`, `pyproject.toml` y el tag coinciden.
 - `docs/SIGNING.md`: estado de la firma y procedimiento de respaldo.
