@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -11,25 +12,36 @@ import 'server_settings.dart';
 /// Cliente REST mínimo para el backend local. Las features lo usan desde su
 /// capa `data/`; nunca desde widgets.
 class ApiClient {
-  ApiClient(this._http, {String baseUrl = apiBaseUrl})
-    : _baseUri = Uri.parse(baseUrl);
+  ApiClient(
+    this._http, {
+    String baseUrl = apiBaseUrl,
+    this.timeouts = const ApiTimeouts(),
+  }) : _baseUri = Uri.parse(baseUrl);
 
   final http.Client _http;
   final Uri _baseUri;
 
+  /// Tiempos máximos por tipo de petición. Cada método usa uno por defecto y
+  /// acepta `timeout` para casos concretos (p. ej. `/compute` o `/health`).
+  final ApiTimeouts timeouts;
+
   static const _jsonHeaders = {'Content-Type': 'application/json'};
 
-  Future<dynamic> get(String path) => _send(() => _http.get(_uri(path)));
+  Future<dynamic> get(String path, {Duration? timeout}) =>
+      _send(() => _http.get(_uri(path)), timeout ?? timeouts.standard);
 
-  Future<dynamic> post(String path, Object body) => _send(
+  Future<dynamic> post(String path, Object body, {Duration? timeout}) => _send(
     () => _http.post(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+    timeout ?? timeouts.standard,
   );
 
-  Future<dynamic> put(String path, Object body) => _send(
+  Future<dynamic> put(String path, Object body, {Duration? timeout}) => _send(
     () => _http.put(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+    timeout ?? timeouts.standard,
   );
 
-  Future<void> delete(String path) => _send(() => _http.delete(_uri(path)));
+  Future<void> delete(String path, {Duration? timeout}) =>
+      _send(() => _http.delete(_uri(path)), timeout ?? timeouts.standard);
 
   /// POST con cuerpo binario (p. ej. un PDF) y respuesta JSON.
   Future<dynamic> postBinary(
@@ -37,44 +49,70 @@ class ApiClient {
     Uint8List body, {
     required String contentType,
     Map<String, String>? query,
+    Duration? timeout,
   }) => _send(
     () => _http.post(
       _uri(path).replace(queryParameters: query),
       headers: {'Content-Type': contentType},
       body: body,
     ),
+    timeout ?? timeouts.upload,
   );
 
   /// GET con respuesta binaria (p. ej. un PDF).
-  Future<Uint8List> getBytes(String path) async =>
-      (await _request(() => _http.get(_uri(path)))).bodyBytes;
+  Future<Uint8List> getBytes(String path, {Duration? timeout}) async =>
+      (await _request(
+        () => _http.get(_uri(path)),
+        timeout ?? timeouts.download,
+      )).bodyBytes;
 
   /// POST con cuerpo JSON y respuesta binaria (p. ej. una imagen PNG).
-  Future<Uint8List> postForBytes(String path, Object body) async {
+  Future<Uint8List> postForBytes(
+    String path,
+    Object body, {
+    Duration? timeout,
+  }) async {
     final response = await _request(
       () =>
           _http.post(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
+      timeout ?? timeouts.render,
     );
     return response.bodyBytes;
   }
 
   Uri _uri(String path) => _baseUri.resolve(path);
 
-  Future<dynamic> _send(Future<http.Response> Function() request) async {
-    final response = await _request(request);
+  Future<dynamic> _send(
+    Future<http.Response> Function() request,
+    Duration timeout,
+  ) async {
+    final response = await _request(request, timeout);
     return response.body.isEmpty
         ? null
         : _decode(utf8.decode(response.bodyBytes));
   }
 
-  /// Ejecuta la petición y convierte los fallos de red y las respuestas de
-  /// error del backend en [ApiException]. Devuelve la respuesta si es 2xx.
+  /// Ejecuta la petición y convierte los fallos de red, el tiempo de espera
+  /// agotado y las respuestas de error del backend en [ApiException].
+  /// Devuelve la respuesta si es 2xx.
+  ///
+  /// Nota: al agotarse [timeout] la app deja de esperar, pero `package:http`
+  /// no cancela la conexión subyacente; se cierra cuando el servidor responde
+  /// o el sistema la corta.
   Future<http.Response> _request(
     Future<http.Response> Function() request,
+    Duration timeout,
   ) async {
     final http.Response response;
     try {
-      response = await request();
+      response = await request().timeout(timeout);
+    } on TimeoutException {
+      throw ApiException(
+        code: 'timeout',
+        message:
+            'El servidor no respondió en ${_seconds(timeout)}. '
+            'Comprueba la conexión y que el backend esté en marcha.',
+      );
     } on Exception catch (e) {
       throw ApiException(
         code: 'network_error',
@@ -104,6 +142,11 @@ class ApiClient {
       message: 'Respuesta inesperada del backend',
       statusCode: response.statusCode,
     );
+  }
+
+  static String _seconds(Duration d) {
+    final s = d.inMilliseconds / 1000;
+    return s == s.roundToDouble() ? '${s.toInt()} s' : '$s s';
   }
 
   dynamic _decode(String text) {

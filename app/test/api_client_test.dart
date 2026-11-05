@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:euler_notes/core/api_client.dart';
 import 'package:euler_notes/core/api_exception.dart';
+import 'package:euler_notes/core/config.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -145,5 +146,117 @@ void main() {
         isA<ApiException>().having((e) => e.code, 'code', 'network_error'),
       ),
     );
+  });
+
+  group('tiempos de espera', () {
+    // Un servidor que tarda [delay] en contestar.
+    MockClient slowServer(Duration delay) => MockClient((request) async {
+      await Future<void>.delayed(delay);
+      return _json({'ok': true}, 200);
+    });
+
+    const tiny = Duration(milliseconds: 50);
+    const roomy = Duration(seconds: 5);
+
+    test('una respuesta lenta falla con code "timeout"', () async {
+      final client = ApiClient(
+        slowServer(const Duration(milliseconds: 500)),
+        timeouts: const ApiTimeouts(standard: tiny),
+      );
+      await expectLater(
+        client.get('/notebooks'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'timeout')
+              .having((e) => e.message, 'message', contains('no respondió')),
+        ),
+      );
+    });
+
+    test('una respuesta a tiempo no cambia', () async {
+      final client = ApiClient(
+        slowServer(const Duration(milliseconds: 10)),
+        timeouts: const ApiTimeouts(standard: roomy),
+      );
+      expect(await client.get('/notebooks'), {'ok': true});
+    });
+
+    test(
+      'el parámetro timeout tiene prioridad sobre el valor por defecto',
+      () async {
+        final client = ApiClient(
+          slowServer(const Duration(milliseconds: 200)),
+          timeouts: const ApiTimeouts(standard: tiny),
+        );
+        expect(await client.get('/health', timeout: roomy), {'ok': true});
+      },
+    );
+
+    test('cada tipo de petición usa su tiempo por defecto', () async {
+      // Todos los tiempos son mínimos salvo el que debería usar cada método.
+      ApiClient clientWith(ApiTimeouts timeouts) => ApiClient(
+        slowServer(const Duration(milliseconds: 200)),
+        timeouts: timeouts,
+      );
+      const allTiny = ApiTimeouts(
+        health: tiny,
+        standard: tiny,
+        compute: tiny,
+        render: tiny,
+        download: tiny,
+        upload: tiny,
+      );
+      expect(
+        await clientWith(
+          const ApiTimeouts(
+            health: tiny,
+            standard: tiny,
+            compute: tiny,
+            render: tiny,
+            download: tiny,
+            upload: roomy,
+          ),
+        ).postBinary(
+          '/documents',
+          Uint8List(4),
+          contentType: 'application/pdf',
+        ),
+        {'ok': true},
+      );
+      expect(
+        await clientWith(
+          const ApiTimeouts(
+            health: tiny,
+            standard: tiny,
+            compute: tiny,
+            render: tiny,
+            download: roomy,
+            upload: tiny,
+          ),
+        ).getBytes('/documents/1/file'),
+        isNotEmpty,
+      );
+      expect(
+        await clientWith(
+          const ApiTimeouts(
+            health: tiny,
+            standard: tiny,
+            compute: tiny,
+            render: roomy,
+            download: tiny,
+            upload: tiny,
+          ),
+        ).postForBytes('/plot', const {}),
+        isNotEmpty,
+      );
+      await expectLater(
+        clientWith(allTiny).postBinary(
+          '/documents',
+          Uint8List(4),
+          contentType: 'application/pdf',
+        ),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 'timeout')),
+      );
+    });
   });
 }

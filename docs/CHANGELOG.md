@@ -8,6 +8,7 @@ Formato basado en *Keep a Changelog*. Versionado semántico. Reconstruido a part
 - Versión del backend sincronizada con la del producto (`0.4.0`), leída de `pyproject.toml`.
 - Variables de entorno con prefijo `EULER_` (se siguen aceptando las `CUADERNO_`).
 ### Añadido
+- Tiempos de espera HTTP centralizados en `ApiClient` (`ApiTimeouts`): 3 s `/health`, 10 s CRUD, 15 s `/compute`, 30 s gráficas, 60 s descarga y 120 s subida de PDF. Al agotarse: `ApiException(code: 'timeout')`.
 - `tool/check_versions.py`: comprueba que `pubspec.yaml`, `pyproject.toml` y el tag coinciden.
 - `docs/SIGNING.md`: estado de la firma y procedimiento de respaldo.
 ### Documentación
