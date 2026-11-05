@@ -8,14 +8,23 @@ pasa del tiempo, se mata.
 import multiprocessing as mp
 import os
 import resource
+import threading
 from collections.abc import Callable
 from multiprocessing.connection import Connection
 from typing import Any
 
+from app.config import env
 from app.errors import AppError
 from app.services.sympy_engine import ComputeFailure, ExpressionError
 
 MEMORY_LIMIT_BYTES = 1 << 30  # 1 GiB por tarea
+
+# Tareas aisladas simultáneas (cálculo, gráficas, PDF). Sin límite, cada petición
+# crearía un proceso de hasta 1 GiB. `EULER_MAX_PARALLEL_TASKS` (por defecto 2).
+MAX_PARALLEL_TASKS = max(1, int(env("MAX_PARALLEL_TASKS", "2") or "2"))
+# Segundos que una petición espera un hueco antes de responder 503.
+QUEUE_TIMEOUT = float(env("TASK_QUEUE_TIMEOUT", "2") or "2")
+_slots = threading.BoundedSemaphore(MAX_PARALLEL_TASKS)
 
 # Antes de arrancar el forkserver: sin hilos de BLAS (memoria virtual enorme con
 # RLIMIT_AS) y matplotlib sin interfaz gráfica.
@@ -49,7 +58,21 @@ def _worker(conn: Connection, fn: Callable[..., Any], args: tuple[Any, ...]) -> 
 
 
 def run_isolated(fn: Callable[..., Any], *args: Any, timeout: float) -> Any:
-    """Ejecuta `fn(*args)` en un subproceso. `fn` debe ser una función de módulo."""
+    """Ejecuta `fn(*args)` en un subproceso. `fn` debe ser una función de módulo.
+
+    Como mucho `MAX_PARALLEL_TASKS` a la vez; si no hay hueco en `QUEUE_TIMEOUT`
+    segundos responde 503 (`server_busy`) en lugar de acumular procesos."""
+    if not _slots.acquire(timeout=QUEUE_TIMEOUT):
+        raise AppError(
+            503, "server_busy", "El servidor está ocupado con otros cálculos; inténtalo de nuevo"
+        )
+    try:
+        return _run(fn, *args, timeout=timeout)
+    finally:
+        _slots.release()
+
+
+def _run(fn: Callable[..., Any], *args: Any, timeout: float) -> Any:
     receiver, sender = _CTX.Pipe(duplex=False)
     process = _CTX.Process(target=_worker, args=(sender, fn, args), daemon=True)
     process.start()
@@ -84,6 +107,6 @@ def start_worker_pool() -> None:
     """Arranca el forkserver (precarga SymPy y matplotlib, unos segundos) para que
     la primera petición del usuario no espere. Pensado para un hilo en segundo plano."""
     try:
-        run_isolated(_noop, timeout=120)
+        _run(_noop, timeout=120)  # sin ocupar un hueco de usuario
     except AppError:
         pass
