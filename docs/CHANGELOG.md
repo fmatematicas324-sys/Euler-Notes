@@ -8,6 +8,9 @@ Formato basado en *Keep a Changelog*. Versionado semántico. Reconstruido a part
 - Versión del backend sincronizada con la del producto (`0.4.0`), leída de `pyproject.toml`.
 - Variables de entorno con prefijo `EULER_` (se siguen aceptando las `CUADERNO_`).
 ### Seguridad
+- Misión 004 (M1): lista explícita de redes permitidas (loopback, RFC 1918, link-local, ULA) en lugar de `is_private`, que aceptaba Teredo y 6to4. Se rechazan siempre multicast, broadcast y direcciones no especificadas, y también las peticiones con cabeceras de proxy.
+- Misión 004 (M2): cancelación real de peticiones HTTP (`AbortableRequest`) al agotarse el tiempo o cancelar. Códigos `timeout`, `cancelled` y `network_error`; las operaciones que crean algo avisan de que pudieron completarse.
+- Misión 004 (M3): el archivo con la URL y el token queda fuera de las copias de seguridad de Android (nube y transferencia entre dispositivos).
 - **Token de acceso obligatorio** (`Authorization: Bearer`) en todas las rutas salvo `/health` y la documentación, también desde el propio equipo. Se genera en `backend/data/api_token` (0600) o se fija con `EULER_API_TOKEN`; la consola indica dónde está sin mostrarlo.
 - Filtro de origen: solo loopback y redes privadas (403), configurable con `EULER_ALLOWED_NETWORKS`. Defensa adicional, no sustituye al token.
 - Máximo 2 tareas aisladas simultáneas (`EULER_MAX_PARALLEL_TASKS`); si no hay hueco, 503 `server_busy`.

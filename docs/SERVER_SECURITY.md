@@ -7,7 +7,7 @@
 | Capa | Qué hace | Qué **no** hace |
 |---|---|---|
 | **Token de acceso** (`Authorization: Bearer`) | Toda petición salvo `/health` y la documentación de la API exige el token, **también desde el propio equipo** | No cifra nada. Si alguien lo obtiene, tiene acceso completo |
-| **Origen de la conexión** | Rechaza (403) conexiones que no vengan del propio equipo ni de una red privada (10/8, 172.16/12, 192.168/16, fc00::/7, enlace local) | **No sustituye a la autenticación**: cualquier dispositivo de tu WiFi pasa este filtro y solo lo frena el token |
+| **Origen de la conexión** | Acepta solo la IP del socket en una lista explícita: loopback (127/8, ::1), RFC 1918 (10/8, 172.16/12, 192.168/16), link-local (169.254/16, fe80::/10) y ULA (fc00::/7). Rechaza siempre Teredo, 6to4, multicast, broadcast y direcciones no especificadas, aunque estén en `EULER_ALLOWED_NETWORKS`. IPv4-mapped se evalúa como su IPv4. Rechaza (403) peticiones con `X-Forwarded-For`, `Forwarded` o `X-Real-IP` | **No sustituye a la autenticación**: cualquier dispositivo de tu WiFi pasa este filtro y solo lo frena el token |
 | **Límite de tareas simultáneas** | Como máximo 2 cálculos, gráficas o análisis de PDF a la vez; si no hay hueco en 2 s responde 503 `server_busy` | No limita el número de peticiones baratas (CRUD) |
 | **CORS** | Solo los orígenes `localhost` y `127.0.0.1` pueden leer respuestas desde un navegador | No protege frente a clientes que no son navegadores |
 
@@ -33,8 +33,9 @@ Las variables antiguas `CUADERNO_*` siguen funcionando; si existen las dos, gana
 ### 3.1 Primer arranque
 ```bash
 cd backend
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000   # 0.0.0.0 solo si lo usará la tablet
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-proxy-headers   # 0.0.0.0 solo si lo usará la tablet
 ```
+- `--no-proxy-headers`: uvicorn no debe reescribir el origen con `X-Forwarded-For`. Por defecto lo hace si la conexión viene de 127.0.0.1 **[H, uvicorn]**. Aunque se olvide la opción, el backend rechaza cualquier petición con cabeceras de proxy (403 `forwarded_not_allowed`), así que el origen siempre sale de la IP del socket. Consecuencia: **no se puede usar detrás de un proxy inverso** sin cambiar esta política.
 - Si no hay `EULER_API_TOKEN`, el servidor crea `backend/data/api_token` (32 bytes aleatorios, `secrets.token_urlsafe`, permisos `0600`).
 - La consola indica **dónde** está el token, pero **no lo muestra** **[H]** (comprobado: el token no aparece en el log).
 - `backend/data/` está en `.gitignore`: el token nunca se sube al repositorio.
@@ -57,6 +58,17 @@ Evita enviar el token por canales que se guarden en la nube (chat, correo). **[P
 Solo en pruebas, el token se pasa con `--dart-define=API_TOKEN=...`. **La app nunca lee el token de `--dart-define`**: el código de `lib/` solo lo obtiene del diálogo del servidor.
 
 ## 4. Almacenamiento del token en la app
+
+### Copias de seguridad de Android (Misión 004, M3)
+| Qué | ¿Se respalda? | Dónde se configura |
+|---|---|---|
+| `shared_prefs/FlutterSharedPreferences.xml` (**solo** `server_url` y `server_token`) | **No**: ni en la nube ni en la transferencia entre dispositivos | `res/xml/backup_rules.xml` (Android 6–11, `android:fullBackupContent`) y `res/xml/data_extraction_rules.xml` (Android 12+, `android:dataExtractionRules`) |
+| Cualquier otro dato de la app (hoy no hay; en el futuro, la base de datos local) | Sí (comportamiento por defecto de Android) | — |
+
+- Se excluye el archivo entero porque Android no permite excluir claves sueltas. Al restaurar en otro dispositivo hay que volver a escribir **la dirección y el token** (§3.2).
+- `app/test/android_backup_rules_test.dart` comprueba las reglas, y que ese archivo solo guarda esas dos claves.
+- La API usada es `SharedPreferences.getInstance()`, que en Android guarda en `FlutterSharedPreferences.xml` **[H, código de shared_preferences_android 2.5.4]**. Si algún día se usa `SharedPreferencesAsync` (DataStore), habrá que excluir también su archivo.
+- **No verificado en un dispositivo:** comprobar con `adb shell bmgr backupnow dev.eulernotes.euler_notes` y revisando el contenido de la copia. Aquí no hay SDK de Android.
 
 **Hoy [H]:** el token se guarda en `shared_preferences`, igual que la URL del servidor. **No está cifrado**:
 - Android: un archivo XML en el directorio privado de la app. Otras apps no pueden leerlo sin root, pero sí una copia de seguridad o un dispositivo rooteado **[C]**.
@@ -84,4 +96,4 @@ Solo en pruebas, el token se pasa con `--dart-define=API_TOKEN=...`. **La app nu
 - Un solo token compartido: no distingue dispositivos ni permite revocar uno solo.
 - `/docs` y `/openapi.json` son públicos: no contienen datos del usuario, pero revelan la estructura de la API (ya es pública en el repositorio).
 - La validación de origen se basa en la IP del socket. Detrás de un proxy inverso vería la IP del proxy (hoy no se usa proxy).
-- `ipaddress.is_private` también considera privadas algunas redes reservadas (p. ej. de documentación) **[H, Python 3.13]**. No afecta al token.
+- ~~`ipaddress.is_private` acepta Teredo y 6to4~~ **Corregido (Misión 004, M1):** se usa una lista explícita de redes.

@@ -186,3 +186,111 @@ def test_slot_is_released_after_errors(client: TestClient, monkeypatch: pytest.M
 
 def test_local_client_constant_is_loopback() -> None:
     assert security.is_allowed_client(LOCAL_CLIENT[0], [])
+
+
+# --- Política explícita de redes (M1) -------------------------------------
+
+ALLOWED_HOSTS = {
+    "loopback IPv4": ["127.0.0.1", "127.255.255.254"],
+    "loopback IPv6": ["::1"],
+    "RFC 1918": [
+        "10.0.0.1",
+        "10.255.255.255",
+        "172.16.0.0",
+        "172.31.255.255",
+        "192.168.0.1",
+        "192.168.255.255",
+    ],
+    "link-local IPv4": ["169.254.0.1", "169.254.255.254"],
+    "link-local IPv6": ["fe80::1", "fe80::1%eth0", "febf:ffff::1"],
+    "ULA": ["fc00::1", "fd12:3456::1", "fdff:ffff::1"],
+    "IPv4-mapped permitida": ["::ffff:127.0.0.1", "::ffff:192.168.1.5", "::ffff:169.254.1.1"],
+}
+
+REJECTED_HOSTS = {
+    "IPv4 pública": ["8.8.8.8", "1.1.1.1", "172.15.255.255", "172.32.0.0", "11.0.0.1"],
+    "IPv6 pública": ["2001:4860:4860::8888", "2a00:1450::1"],
+    "Teredo": ["2001:0:4136:e378:8000:63bf:3fff:fdd2", "2001::1"],
+    "6to4": ["2002:0808:0808::1", "2002:c0a8:0101::1"],  # el 2.º envuelve 192.168.1.1
+    "no especificada": ["0.0.0.0", "0.1.2.3", "::"],
+    "multicast": ["224.0.0.1", "239.255.255.250", "ff02::1", "ff05::2"],
+    "broadcast": ["255.255.255.255"],
+    "reservadas fuera de la lista": [
+        "100.64.0.1",  # CGNAT
+        "192.0.2.10",  # documentación
+        "198.18.0.1",  # pruebas de rendimiento
+        "240.0.0.1",  # reservada
+        "2001:db8::1",  # documentación IPv6
+        "fec0::1",  # site-local (obsoleta)
+        "64:ff9b::808:808",  # NAT64
+        "::8.8.8.8",  # IPv4-compatible (obsoleta)
+    ],
+    "IPv4-mapped rechazada": ["::ffff:8.8.8.8", "::ffff:224.0.0.1", "::ffff:0.0.0.0"],
+    "no es una IP": ["", "testclient", "[::1]", "localhost", "192.168.1"],
+}
+
+
+@pytest.mark.parametrize(
+    ("category", "host"),
+    [(category, host) for category, hosts in ALLOWED_HOSTS.items() for host in hosts],
+)
+def test_allowed_categories(category: str, host: str) -> None:
+    assert security.is_allowed_client(host, []), category
+
+
+@pytest.mark.parametrize(
+    ("category", "host"),
+    [(category, host) for category, hosts in REJECTED_HOSTS.items() for host in hosts],
+)
+def test_rejected_categories(category: str, host: str) -> None:
+    assert not security.is_allowed_client(host, []), category
+
+
+def test_none_host_is_rejected() -> None:
+    assert not security.is_allowed_client(None, [])
+
+
+@pytest.mark.parametrize(
+    "host", ["2001::1", "2002:0808:0808::1", "0.0.0.0", "::", "224.0.0.1", "ff02::1"]
+)
+def test_denied_networks_win_over_extra_networks(host: str) -> None:
+    everything = [security.ipaddress.ip_network("0.0.0.0/0"), security.ipaddress.ip_network("::/0")]
+    assert not security.is_allowed_client(host, everything)
+
+
+def test_extra_networks_allow_only_what_they_list() -> None:
+    vpn = [security.ipaddress.ip_network("100.64.0.0/10")]
+    assert security.is_allowed_client("100.64.1.1", vpn)
+    assert security.is_allowed_client("::ffff:100.64.1.1", vpn)
+    assert not security.is_allowed_client("100.128.0.1", vpn)
+
+
+def test_policy_does_not_use_is_private() -> None:
+    # Teredo y 6to4 son "privadas" para Python, pero enrutables desde Internet.
+    teredo = security.ipaddress.ip_address("2001::1")
+    assert teredo.is_private
+    assert not security.is_allowed_client(str(teredo), [])
+
+
+@pytest.mark.parametrize(
+    ("header", "value"),
+    [
+        ("X-Forwarded-For", "192.168.1.20"),
+        ("x-forwarded-for", "127.0.0.1"),
+        ("Forwarded", "for=192.168.1.20"),
+        ("X-Real-IP", "10.0.0.2"),
+    ],
+)
+def test_forwarding_headers_are_rejected(client: TestClient, header: str, value: str) -> None:
+    for path in ("/notebooks", "/health"):
+        response = client.get(path, headers={header: value})
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "forwarded_not_allowed"
+
+
+def test_forwarding_headers_cannot_unlock_a_public_origin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with _client_from("8.8.8.8", tmp_path, monkeypatch) as remote:
+        response = remote.get("/notebooks", headers={"X-Forwarded-For": "127.0.0.1"})
+        assert response.status_code == 403

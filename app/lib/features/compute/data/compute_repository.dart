@@ -13,11 +13,12 @@ class ComputeRepository {
     required ComputeOp op,
     String variable = 'x',
   }) async => ComputeResult.fromJson(
-    await _api.post('/compute', {
-      'expr': expr,
-      'op': op.name,
-      'var': variable,
-    }, timeout: _api.timeouts.compute) as Map<String, dynamic>,
+    await _api.post(
+      '/compute',
+      {'expr': expr, 'op': op.name, 'var': variable},
+      timeout: _api.timeouts.compute,
+      idempotent: true,
+    ) as Map<String, dynamic>,
   );
 }
 
