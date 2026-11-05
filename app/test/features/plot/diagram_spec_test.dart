@@ -143,4 +143,48 @@ void main() {
       DiagramSpec.parse('tipo: grafo\n\nA  -  B'),
     );
   });
+
+  test('superficie: valores por defecto', () {
+    final json = _json(DiagramSpec.parse('tipo: superficie\nf: x^2 + y^2'));
+    expect(json, {
+      'kind': 'surface',
+      'expr': 'x^2 + y^2',
+      'var_x': 'x',
+      'var_y': 'y',
+      'x_min': -5.0,
+      'x_max': 5.0,
+      'y_min': -5.0,
+      'y_max': 5.0,
+      'contours': true,
+    });
+  });
+
+  test('superficie: rangos con pi, otras variables y sin curvas', () {
+    final json = _json(
+      DiagramSpec.parse(
+        'tipo: 3D\nz: sin(u)*cos(v)\nvars: u, v\nu: -pi, pi\nv: 0, 2\n'
+        'curvas: no',
+      ),
+    );
+    expect(json['var_x'], 'u');
+    expect(json['var_y'], 'v');
+    expect(json['x_max'] as double, closeTo(math.pi, 1e-12));
+    expect(json['y_max'], 2.0);
+    expect(json['contours'], false);
+  });
+
+  test('superficie: errores claros', () {
+    for (final source in [
+      'tipo: superficie',
+      'tipo: superficie\nf: x*y\nvars: x, x',
+      'tipo: superficie\nf: x*y\nvars: u',
+      'tipo: superficie\nf: x*y\ncolor: rojo',
+    ]) {
+      expect(
+        () => DiagramSpec.parse(source),
+        throwsFormatException,
+        reason: source,
+      );
+    }
+  });
 }

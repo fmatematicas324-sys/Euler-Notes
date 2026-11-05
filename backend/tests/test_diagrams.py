@@ -39,6 +39,13 @@ def _diagram(client: TestClient, **payload):
                 {"source": f"N{i}", "target": f"N{(i * 3) % 9}", "weight": i} for i in range(9)
             ],
         },
+        {"kind": "surface", "expr": "x^2 + y^2"},
+        {"kind": "surface", "expr": "sin(x)*cos(y)", "theme": "dark", "contours": False},
+        {"kind": "surface", "expr": "sqrt(1 - x^2 - y^2)", "x_min": -1, "x_max": 1,
+         "y_min": -1, "y_max": 1},  # dominio parcial: caras sin valor real descartadas
+        {"kind": "surface", "expr": "1/(x^2 + y^2)"},  # polo en el origen
+        {"kind": "surface", "expr": "3"},  # plano constante
+        {"kind": "surface", "expr": "u*v", "var_x": "u", "var_y": "v"},
     ],
 )
 def test_diagram_kinds(client: TestClient, payload: dict) -> None:
@@ -66,6 +73,8 @@ def test_unknown_kind(client: TestClient) -> None:
         {"kind": "projectile", "v0": 10, "angle": 95},
         {"kind": "graph", "edges": []},
         {"kind": "graph", "edges": [{"source": "A", "target": "B;C"}]},
+        {"kind": "surface", "expr": "x*y", "var_x": "x", "var_y": "x"},
+        {"kind": "surface", "expr": "x*y", "y_min": 2, "y_max": 1},
     ],
 )
 def test_invalid_diagrams(client: TestClient, payload: dict) -> None:
@@ -98,3 +107,22 @@ def test_numeric_zeros_are_shown_as_zero() -> None:
     assert _fmt(2.07e-41) == "0"
     assert _fmt(1.8168) == "1.82"
     assert _fmt(0.000123) == "1.23e-04"
+
+
+@pytest.mark.parametrize("expr", ["__import__('os')", "a*x*y"])
+def test_surface_rejects_unsafe_or_extra_symbols(client: TestClient, expr: str) -> None:
+    response = _diagram(client, kind="surface", expr=expr)
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_expression"
+
+
+def test_function_diagram_suggests_surface_for_two_variables(client: TestClient) -> None:
+    response = _diagram(client, kind="function", expr="x^2 + y^2", op="simplify")
+    assert response.status_code == 400
+    assert "superficie" in response.json()["error"]["message"]
+
+
+def test_surface_without_real_values_fails_cleanly(client: TestClient) -> None:
+    response = _diagram(client, kind="surface", expr="sqrt(-1 - x^2 - y^2)")
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "compute_error"
