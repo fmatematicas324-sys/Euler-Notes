@@ -2,10 +2,13 @@
 
 Dos comprobaciones **independientes**, en este orden:
 
-1. **Origen (403):** solo se aceptan conexiones desde el propio equipo (loopback)
-   o desde redes privadas (LAN). Es una defensa adicional para reducir la
-   exposición; **no sustituye a la autenticación**: cualquier dispositivo de la
-   misma red sigue llegando hasta el paso 2.
+1. **Origen (403):** solo se aceptan conexiones cuya IP de socket esté en una
+   lista explícita (`ALLOWED_NETWORKS`: loopback, RFC 1918, link-local y ULA) y
+   fuera de `DENIED_NETWORKS` (Teredo, 6to4, multicast, no especificadas). Se
+   rechazan las peticiones con cabeceras de proxy (`X-Forwarded-For`...).
+   Es una defensa adicional para reducir la exposición; **no sustituye a la
+   autenticación**: cualquier dispositivo de la misma red sigue llegando hasta
+   el paso 2.
 2. **Token (401):** toda petición debe llevar `Authorization: Bearer <token>`,
    también las del propio equipo. Solo quedan fuera `/health` (sin datos
    sensibles) y la documentación de la API (el esquema ya es público en el repo).
@@ -80,30 +83,72 @@ class TokenStore:
         return str(self._data_dir() / TOKEN_FILE_NAME)
 
 
-def allowed_networks() -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+# Política explícita (no `ipaddress.is_private`, que también considera "privadas"
+# redes enrutables desde Internet como Teredo o 6to4).
+ALLOWED_NETWORKS: tuple[Network, ...] = tuple(
+    ipaddress.ip_network(cidr)
+    for cidr in (
+        "127.0.0.0/8",  # loopback IPv4
+        "10.0.0.0/8",  # RFC 1918
+        "172.16.0.0/12",  # RFC 1918
+        "192.168.0.0/16",  # RFC 1918
+        "169.254.0.0/16",  # link-local IPv4
+        "::1/128",  # loopback IPv6
+        "fe80::/10",  # link-local IPv6
+        "fc00::/7",  # Unique Local Addresses (ULA)
+    )
+)
+
+# Siempre rechazadas, aunque aparezcan en `EULER_ALLOWED_NETWORKS`.
+DENIED_NETWORKS: tuple[Network, ...] = tuple(
+    ipaddress.ip_network(cidr)
+    for cidr in (
+        "0.0.0.0/8",  # "esta red" / no especificada
+        "224.0.0.0/4",  # multicast IPv4
+        "255.255.255.255/32",  # broadcast
+        "::/128",  # no especificada IPv6
+        "ff00::/8",  # multicast IPv6
+        "2001::/32",  # Teredo (túnel enrutable desde Internet)
+        "2002::/16",  # 6to4 (túnel enrutable desde Internet)
+    )
+)
+
+# Cabeceras con las que un cliente o un proxy declara otro origen. No se usan
+# para decidir: si llegan, la petición se rechaza (ver `SecurityMiddleware`).
+FORWARDING_HEADERS = frozenset({b"x-forwarded-for", b"forwarded", b"x-real-ip"})
+
+
+def allowed_networks() -> list[Network]:
     """Redes extra permitidas (`EULER_ALLOWED_NETWORKS`, CIDR separados por comas),
-    p. ej. `100.64.0.0/10` para una VPN tipo Tailscale."""
+    p. ej. `100.64.0.0/10` para una VPN tipo Tailscale. `DENIED_NETWORKS` sigue
+    teniendo prioridad."""
     raw = env("ALLOWED_NETWORKS", "") or ""
     return [
         ipaddress.ip_network(item.strip(), strict=False) for item in raw.split(",") if item.strip()
     ]
 
 
-def is_allowed_client(
-    host: str | None, extra: list[ipaddress.IPv4Network | ipaddress.IPv6Network]
-) -> bool:
-    """True si la conexión viene del propio equipo, de una red privada o de `extra`."""
+def is_allowed_client(host: str | None, extra: list[Network]) -> bool:
+    """True solo si la IP del socket pertenece a `ALLOWED_NETWORKS` o a `extra`,
+    y no a `DENIED_NETWORKS`. Las direcciones IPv4-mapped (`::ffff:a.b.c.d`) se
+    evalúan como la IPv4 que contienen."""
     if not host:
         return False
     try:
         address = ipaddress.ip_address(host)
     except ValueError:
         return False
-    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped:
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
         address = address.ipv4_mapped
-    if address.is_loopback or address.is_private:
-        return True
-    return any(address in network for network in extra)
+    if any(address in network for network in DENIED_NETWORKS):
+        return False
+    return any(address in network for network in (*ALLOWED_NETWORKS, *extra))
+
+
+def has_forwarding_headers(headers: list[tuple[bytes, bytes]]) -> bool:
+    return any(name.lower() in FORWARDING_HEADERS for name, _ in headers)
 
 
 def _bearer(headers: list[tuple[bytes, bytes]]) -> str | None:
@@ -129,6 +174,19 @@ class SecurityMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
+            return
+
+        # El origen se decide solo con la IP del socket. Si llegan cabeceras de
+        # proxy, se rechaza: uvicorn (con `--proxy-headers`, activo por defecto)
+        # reescribe `client` a partir de ellas cuando la conexión viene de
+        # 127.0.0.1, y aquí ya no se puede saber cuál era el socket real.
+        if has_forwarding_headers(scope.get("headers", [])):
+            response = error_response(
+                403,
+                "forwarded_not_allowed",
+                "Conexión rechazada: no se admiten peticiones reenviadas por un proxy",
+            )
+            await response(scope, receive, send)
             return
 
         client = scope.get("client")
