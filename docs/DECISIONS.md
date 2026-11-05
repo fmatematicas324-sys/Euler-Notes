@@ -63,6 +63,17 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - Las caras se construyen a mano (`Poly3DCollection`) para descartar las que tienen vértices sin valor real, en vez de depender del trato de los NaN en `plot_surface`, que varía entre versiones.
 - Imagen estática: no se puede girar. Una vista interactiva exigiría render en el cliente y se valorará con la arquitectura sin conexión (ADR 10–14).
 
+## ADR 19 — Emparejamiento: el token se muestra solo a petición · **Aceptada** (Misión 011)
+- `python -m app.pair` muestra la dirección LAN y el token (con QR) cuando el dueño lo pide en la terminal.
+- El servidor **no** escribe el token en sus registros: con systemd quedaría guardado en el journal.
+- El QR contiene solo el token; la cámara de la tablet lo copia sin que la app necesite permiso de cámara ni dependencias nuevas.
+- El backend se instala como servicio **de usuario** de systemd (sin sudo).
+
+## ADR 20 — Más figuras en el mismo motor · **Aceptada** (Misión 012)
+- Curvas de nivel, campos vectoriales y curvas 3D son tipos de `/diagram` dibujados con matplotlib, como el resto (ADR 18). Sin dependencias nuevas.
+- El campo vectorial muestra ∇·F y (∇×F)_z calculados con SymPy: la figura enseña, no solo dibuja.
+- Mismo recorte por percentiles en todas las figuras para que los polos (1/r, 1/r²) no aplasten la imagen.
+
 ## Decisiones aplazadas
 - Sincronización (PowerSync, servidor propio o CRDT): después del MVP sin conexión.
 - Reconocimiento de escritura a mano y de fórmulas (ML Kit Digital Ink, MyScript SDK u otro modelo): requiere estudiar licencias y funcionamiento sin conexión.

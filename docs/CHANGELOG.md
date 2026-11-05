@@ -16,6 +16,10 @@ Formato basado en *Keep a Changelog*. Versionado semántico. Reconstruido a part
 - Máximo 2 tareas aisladas simultáneas (`EULER_MAX_PARALLEL_TASKS`); si no hay hueco, 503 `server_busy`.
 - App: campo «Token de acceso» (oculto) en el diálogo del servidor; «Probar conexión» valida el token con `/auth/check`.
 ### Añadido
+- Misión 012: diagramas `contour` (curvas de nivel), `vector_field` (flechas o líneas de campo, con divergencia y rotacional) y `curve3d` (curvas paramétricas), con sus bloques ` ```diagram ` y plantillas.
+- Misión 011: `python -m app.pair` (dirección y token con QR, `--rotar`), `tool/install_service.sh` (servicio de systemd) y `docs/CONEXION.md`. Nueva dependencia ligera: `segno`.
+- Misión 010: firma estable del APK con los secretos `ANDROID_*` en `ci.yml` y `release.yml` (pendiente de que el dueño cree la clave).
+- Misión 009: `AUDIT_REPORT.md` y `ONENOTE_ANALYSIS.md` en `docs/product_research/`.
 - Misión 008: superficies 3D z = f(x, y) como diagrama `surface` (`POST /diagram`) y bloque ` ```diagram ` con `tipo: superficie`, con curvas de nivel opcionales en la base.
 - Ruta `GET /auth/check`.
 - `docs/SERVER_SECURITY.md`: procedimientos, riesgos y estudio de `flutter_secure_storage`.
