@@ -17,6 +17,7 @@ import '../../plot/domain/diagram_spec.dart';
 import '../../symbols/domain/latex_insertion.dart';
 import '../../symbols/domain/latex_symbol.dart';
 import '../../symbols/presentation/symbol_palette.dart';
+import '../data/note_drafts.dart';
 import '../data/notes_repository.dart';
 import '../domain/paper_style.dart';
 import 'markdown_preview.dart';
@@ -32,6 +33,18 @@ class NoteEditorScreen extends ConsumerStatefulWidget {
   final int noteId;
 
   static const autosaveDelay = Duration(milliseconds: 800);
+
+  /// Espera antes de copiar el texto al borrador local (más corta que el
+  /// autoguardado: el borrador es lo que sobrevive si la app se cierra).
+  static const draftDelay = Duration(milliseconds: 300);
+
+  /// Reintentos tras un guardado fallido: 5 s, 15 s, 30 s y luego cada minuto.
+  static const retryDelays = [
+    Duration(seconds: 5),
+    Duration(seconds: 15),
+    Duration(seconds: 30),
+    Duration(minutes: 1),
+  ];
 
   /// A partir de este ancho, editor y vista previa se muestran lado a lado.
   static const wideLayoutWidth = 840.0;
@@ -51,23 +64,34 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   Object? _loadError;
   SaveStatus _status = SaveStatus.saved;
   Timer? _autosave;
+  Timer? _draftTimer;
+  Timer? _retry;
+  int _failures = 0;
+  late final AppLifecycleListener _lifecycle;
   Future<bool>? _inFlight;
   String _savedTitle = '';
   String _savedContent = '';
 
   NotesRepository get _repository => ref.read(notesRepositoryProvider);
+  NoteDrafts get _drafts => ref.read(noteDraftsProvider);
 
   @override
   void initState() {
     super.initState();
     _title.addListener(_onChanged);
     _content.addListener(_onChanged);
+    // Al pasar a segundo plano Android puede cerrar la app sin avisar: se
+    // copia el texto al borrador y se intenta guardar.
+    _lifecycle = AppLifecycleListener(onHide: _flush, onPause: _flush);
     _load();
   }
 
   @override
   void dispose() {
     _autosave?.cancel();
+    _draftTimer?.cancel();
+    _retry?.cancel();
+    _lifecycle.dispose();
     _title.dispose();
     _content.dispose();
     _contentFocus.dispose();
@@ -88,9 +112,84 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       _title.text = note.title;
       _content.text = note.content;
       setState(() => _loaded = true);
+      await _offerDraft(note.title, note.content);
     } on Object catch (error) {
       if (mounted) setState(() => _loadError = error);
     }
+  }
+
+  // --- Borrador local (Misión 013) -----------------------------------------
+
+  /// Si hay un borrador distinto de lo que tiene el servidor, pregunta si se
+  /// recupera. Si coincide, ya no hace falta y se borra.
+  Future<void> _offerDraft(String serverTitle, String serverContent) async {
+    final draft = _drafts.read(widget.noteId);
+    if (draft == null) return;
+    if (draft.title == serverTitle && draft.content == serverContent) {
+      await _drafts.remove(widget.noteId);
+      return;
+    }
+    if (!mounted) return;
+    var message =
+        'Esta nota tiene cambios del ${_formatDate(draft.savedAt)} que se '
+        'guardaron en la tablet pero no llegaron al servidor.';
+    if (draft.base != serverContent) {
+      message +=
+          '\n\nOjo: la nota también cambió en el servidor desde entonces. '
+          'Si recuperas los cambios, sustituirán esa versión.';
+    }
+    final restore = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Cambios sin guardar'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Descartar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Recuperar'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (restore ?? false) {
+      _title.text = draft.title;
+      _content.text = draft.content; // queda «Sin guardar» y se autoguarda
+    } else {
+      await _drafts.remove(widget.noteId);
+    }
+  }
+
+  static String _formatDate(DateTime date) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(date.day)}/${two(date.month)} a las '
+        '${two(date.hour)}:${two(date.minute)}';
+  }
+
+  Future<void> _writeDraft() async {
+    _draftTimer?.cancel();
+    if (!_loaded || !_isDirty) return;
+    await _drafts.write(
+      widget.noteId,
+      NoteDraft(
+        title: _effectiveTitle,
+        content: _content.text,
+        base: _savedContent,
+        savedAt: DateTime.now(),
+      ),
+    );
+  }
+
+  /// La app pasa a segundo plano: borrador ya y un intento de guardado.
+  void _flush() {
+    if (!_loaded || !_isDirty) return;
+    unawaited(_writeDraft());
+    unawaited(_save());
   }
 
   /// Un título vacío no se guarda: se conserva el último válido.
@@ -113,16 +212,20 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
       return;
     }
     if (_status != SaveStatus.saving) _setStatus(SaveStatus.pending);
+    _draftTimer?.cancel();
+    _draftTimer = Timer(NoteEditorScreen.draftDelay, _writeDraft);
     _autosave?.cancel();
     _autosave = Timer(NoteEditorScreen.autosaveDelay, _save);
   }
 
   Future<bool> _save() async {
     _autosave?.cancel();
+    _retry?.cancel();
     if (_inFlight != null) await _inFlight;
     if (!mounted || !_loaded) return false;
     if (!_isDirty) {
       _setStatus(SaveStatus.saved);
+      await _drafts.remove(widget.noteId);
       return true;
     }
 
@@ -136,7 +239,8 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         _savedContent = content;
         return true;
       } on Object catch (error) {
-        if (mounted) showErrorSnackBar(context, error);
+        // Solo el primer fallo de una racha: los reintentos no repiten el aviso.
+        if (mounted && _failures == 0) showErrorSnackBar(context, error);
         return false;
       }
     }();
@@ -144,14 +248,27 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
     final ok = await request;
     _inFlight = null;
 
+    if (!mounted) return ok;
     if (!ok) {
       _setStatus(SaveStatus.failed);
-    } else if (_isDirty) {
+      // El texto ya está en el borrador; se reintenta solo, cada vez más tarde.
+      await _writeDraft();
+      const delays = NoteEditorScreen.retryDelays;
+      final delay = delays[_failures < delays.length
+          ? _failures
+          : delays.length - 1];
+      _retry = Timer(delay, _save);
+      _failures++;
+      return false;
+    }
+    _failures = 0;
+    if (_isDirty) {
       // Se siguió escribiendo durante el guardado.
       _setStatus(SaveStatus.pending);
       _autosave = Timer(NoteEditorScreen.autosaveDelay, _save);
     } else {
       _setStatus(SaveStatus.saved);
+      await _drafts.remove(widget.noteId);
     }
     return ok;
   }
@@ -168,7 +285,9 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         await showConfirmDialog(
           context,
           title: 'No se pudo guardar',
-          message: '¿Salir sin guardar los últimos cambios?',
+          message:
+              'Los cambios quedan guardados en la tablet. Podrás recuperarlos '
+              'al volver a abrir la nota cuando haya conexión. ¿Salir?',
           confirmLabel: 'Salir',
         );
     if (leave && mounted) Navigator.of(context).pop();

@@ -37,7 +37,7 @@
 | # | Problema | Estado |
 |---|---|---|
 | 1 | Dependencia total del backend | ⏳ Abierto. Es la Etapa 2 (ADR 10–14, no autorizada). |
-| 2 | Si falla un guardado, el texto queda solo en memoria | ⏳ Abierto **[Hip]**: no se ha reproducido. Ver §6. |
+| 2 | Si falla un guardado, el texto queda solo en memoria | ✅ Confirmado leyendo el código y resuelto en la Misión 013 (borrador local + reintentos). |
 | 3 | Servidor sin autenticación | ✅ Token obligatorio y filtro de red (Misiones 003–004). ⏳ Falta TLS. |
 | 4 | Cliente HTTP sin tiempo de espera | ✅ `ApiTimeouts` (Misión 004). |
 | 5 | Cálculos simultáneos sin límite | ✅ Máximo 2 tareas aisladas, 503 si no hay hueco. |
