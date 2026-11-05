@@ -74,6 +74,13 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - El campo vectorial muestra ∇·F y (∇×F)_z calculados con SymPy: la figura enseña, no solo dibuja.
 - Mismo recorte por percentiles en todas las figuras para que los polos (1/r, 1/r²) no aplasten la imagen.
 
+## ADR 21 — Borradores locales fuera de las copias de seguridad · **Aceptada** (Misión 013)
+- Los borradores de notas se guardan en `shared_preferences`, el mismo archivo que la URL y el token, que está excluido de las copias de seguridad de Android (Misión 004, M3).
+- Motivo: son temporales (la nota real está en el servidor y el borrador se borra al guardar) y contienen apuntes del usuario que no deben subir a la nube de Google sin que lo decida.
+- La clave incluye la URL del servidor: el id de una nota solo es único dentro de un servidor.
+- `android_backup_rules_test.dart` comprueba que solo `server_settings.dart` y `note_drafts.dart` escriben en ese archivo.
+- Revisar en la Etapa 2: con notas locales, el almacenamiento principal sí deberá respaldarse (o exportarse).
+
 ## Decisiones aplazadas
 - Sincronización (PowerSync, servidor propio o CRDT): después del MVP sin conexión.
 - Reconocimiento de escritura a mano y de fórmulas (ML Kit Digital Ink, MyScript SDK u otro modelo): requiere estudiar licencias y funcionamiento sin conexión.

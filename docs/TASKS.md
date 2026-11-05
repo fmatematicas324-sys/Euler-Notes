@@ -129,3 +129,12 @@ Ver `product_research/arquitectura_tecnica.md §5`.
 - [x] Bloques ` ```diagram ` y plantillas en el editor; pruebas de backend y de Dart.
 - [ ] **Dueño:** probarlas en la tablet (requiere el APK de esta rama).
 
+## Misión 013 — No perder texto sin conexión ✅ (código y pruebas; falta probar en la tablet)
+**[H]** Leyendo `note_editor_screen.dart`: tras un guardado fallido no se reintentaba solo, y si Android cerraba la app (o se acababa la batería) el texto pendiente se perdía. Era el problema abierto 2 de la auditoría.
+- [x] Borrador local por nota y servidor (`note_drafts.dart`, en `shared_preferences`, fuera de las copias de seguridad).
+- [x] El borrador se escribe 300 ms después de cada cambio y al pasar la app a segundo plano; se borra al guardar en el servidor.
+- [x] Reintento automático tras un fallo: 5 s, 15 s, 30 s y luego cada minuto; el aviso de error sale una sola vez por racha.
+- [x] Al abrir una nota con borrador distinto: diálogo «Recuperar / Descartar», con aviso si la nota cambió en el servidor.
+- [x] Pruebas: cierre de la app sin conexión, recuperar, descartar, conflicto y reintento.
+- [ ] **Dueño:** probar en la tablet: apagar el servidor (`systemctl --user stop euler-notes`), escribir, cerrar la app, encender el servidor y volver a abrir la nota.
+
