@@ -61,7 +61,7 @@ Estado: ⏳ pendiente de aprobación · 🔜 aprobada, sin empezar · 🚧 en cu
 - Convertir `TimeoutException` en `ApiException` con un mensaje en español, y añadir pruebas con `FakeBackend`.
 - Riesgos:
   - Cortar subidas grandes en una WiFi lenta.
-  - **[Hip]** `http` 1.6 no cancela de verdad la petición: el `Future` caduca pero la conexión puede seguir abierta.
+  - ~~`http` 1.6 no cancela la petición~~ **Corregido (Misión 004, M2):** era incorrecto. `http` 1.6.0 incluye `AbortableRequest`/`abortTrigger`, que `IOClient` y `BrowserClient` respetan. `ApiClient` lo usa: al agotarse el tiempo o cancelar, la conexión se cierra (comprobado con sockets reales en `test/api_client_cancel_test.dart`).
 
 ### 0.6 Seguridad del servidor ✅ token + filtro de origen + límite de tareas (paso D; ADR 17). TLS y `flutter_secure_storage` ⏳ con propuesta aparte (`docs/SERVER_SECURITY.md`)
 **Hechos [H]:**
