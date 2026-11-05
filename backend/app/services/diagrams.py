@@ -39,6 +39,7 @@ ARROW_SAMPLES = 21  # flechas por eje del campo vectorial
 STREAM_SAMPLES = 60  # malla para las líneas de campo
 CURVE_SAMPLES = 1500  # puntos de la curva paramétrica
 CMAP = "viridis"
+PAD_3D = 0.14  # separación entre la figura 3D y su barra de color
 
 
 def validate_diagram(spec: dict[str, Any]) -> None:
@@ -450,9 +451,13 @@ def _clip_range(values: np.ndarray) -> tuple[np.ndarray, float, float]:
     return np.clip(values, low, high), low, high
 
 
-def _colorbar(fig: Figure, ax, mappable, theme: str, label: str = "") -> None:  # noqa: ANN001
+def _colorbar(  # noqa: ANN001
+    fig: Figure, ax, mappable, theme: str, label: str = "", *, pad: float = 0.04
+) -> None:
+    """Barra de color. En 3D necesita más separación (`PAD_3D`): si no, se monta
+    sobre las marcas del eje z."""
     ink = pl.INK[theme]
-    bar = fig.colorbar(mappable, ax=ax, shrink=0.75, pad=0.04)
+    bar = fig.colorbar(mappable, ax=ax, shrink=0.7, pad=pad)
     bar.ax.tick_params(colors=ink["text"], labelsize=8)
     bar.outline.set_edgecolor(ink["grid"])
     if label:
@@ -532,7 +537,7 @@ def _surface(spec: dict[str, Any]) -> bytes:
     ax.set_ylim(spec["y_min"], spec["y_max"])
     ax.set_zlim(z_min, z_max)
     _style_3d(ax, theme, (str(x), str(y), "z"))
-    _colorbar(fig, ax, ScalarMappable(norm=norm, cmap=cmap), theme)
+    _colorbar(fig, ax, ScalarMappable(norm=norm, cmap=cmap), theme, pad=PAD_3D)
     ax.set_title(pl.math_label(expr, "z = "), fontsize=11)
     return pl.to_png(fig, ax, theme, legend=False)
 
@@ -682,7 +687,7 @@ def _curve3d(spec: dict[str, Any]) -> bytes:
         pad = 0.05 * (high - low) if high > low else 1.0
         axis_set(low - pad, high + pad)
     _style_3d(ax, theme, ("x", "y", "z"))
-    _colorbar(fig, ax, line, theme, str(t))
+    _colorbar(fig, ax, line, theme, str(t), pad=PAD_3D)
     title = (
         rf"$\vec{{r}}({sp.latex(t)}) = \left({sp.latex(exprs[0])},\ "
         rf"{sp.latex(exprs[1])},\ {sp.latex(exprs[2])}\right)$"
