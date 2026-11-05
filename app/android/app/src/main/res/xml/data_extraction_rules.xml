@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copia en la nube y transferencia entre dispositivos en Android 12+ (API 31+).
+     Ver docs/SERVER_SECURITY.md §4.
+
+     Se excluye SOLO FlutterSharedPreferences.xml (dirección del servidor y
+     token de acceso) en los dos casos: el token no debe salir del dispositivo.
+     El resto de datos de la app sigue incluyéndose. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="FlutterSharedPreferences.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="sharedpref" path="FlutterSharedPreferences.xml" />
+    </device-transfer>
+</data-extraction-rules>
