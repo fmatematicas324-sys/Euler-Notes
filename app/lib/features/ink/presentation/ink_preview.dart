@@ -15,7 +15,7 @@ class InkPreview extends ConsumerWidget {
     this.paper = PaperStyle.blank,
   });
 
-  final int drawingId;
+  final String drawingId;
   final PaperStyle paper;
 
   Future<void> _edit(BuildContext context, WidgetRef ref) async {

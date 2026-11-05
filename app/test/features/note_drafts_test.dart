@@ -25,25 +25,25 @@ void main() {
 
     test('guarda, lee y borra por nota', () async {
       final drafts = NoteDrafts(preferences, 'http://pc:8000');
-      await drafts.write(3, draft('nuevo'));
-      final read = drafts.read(3)!;
+      await drafts.write('3', draft('nuevo'));
+      final read = drafts.read('3')!;
       expect(read.content, 'nuevo');
       expect(read.base, 'antes');
       expect(read.savedAt, DateTime(2026, 11, 5, 14, 30));
-      expect(drafts.read(4), isNull);
-      await drafts.remove(3);
-      expect(drafts.read(3), isNull);
+      expect(drafts.read('4'), isNull);
+      await drafts.remove('3');
+      expect(drafts.read('3'), isNull);
     });
 
     test('cada servidor tiene sus propios borradores', () async {
-      await NoteDrafts(preferences, 'http://a:8000').write(1, draft('de A'));
-      expect(NoteDrafts(preferences, 'http://b:8000').read(1), isNull);
+      await NoteDrafts(preferences, 'http://a:8000').write('1', draft('de A'));
+      expect(NoteDrafts(preferences, 'http://b:8000').read('1'), isNull);
     });
 
     test('sin almacenamiento no falla', () async {
       final drafts = NoteDrafts(null, 'http://pc:8000');
-      await drafts.write(1, draft('x'));
-      expect(drafts.read(1), isNull);
+      await drafts.write('1', draft('x'));
+      expect(drafts.read('1'), isNull);
     });
 
     test('un borrador corrupto se ignora', () {

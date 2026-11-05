@@ -9,6 +9,7 @@ final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
 
 const _serverUrlKey = 'server_url';
 const _serverTokenKey = 'server_token';
+const _offlineModeKey = 'offline_mode';
 
 /// URL del backend. Por defecto [apiBaseUrl] (`--dart-define=API_BASE_URL`);
 /// el usuario puede cambiarla (p. ej. la IP de su PC desde una tablet).
@@ -57,6 +58,24 @@ class ServerTokenController extends Notifier<String> {
 
 final serverTokenProvider = NotifierProvider<ServerTokenController, String>(
   ServerTokenController.new,
+);
+
+/// Modo sin conexión (Etapa 2, beta): cuadernos, notas y dibujos se leen y
+/// guardan en la copia de la tablet en vez de en el servidor. El cálculo, las
+/// figuras y los PDF siguen usando el servidor. Desactivado por defecto.
+class OfflineModeController extends Notifier<bool> {
+  @override
+  bool build() =>
+      ref.watch(sharedPreferencesProvider)?.getBool(_offlineModeKey) ?? false;
+
+  Future<void> change(bool enabled) async {
+    await ref.read(sharedPreferencesProvider)?.setBool(_offlineModeKey, enabled);
+    state = enabled;
+  }
+}
+
+final offlineModeProvider = NotifierProvider<OfflineModeController, bool>(
+  OfflineModeController.new,
 );
 
 /// `192.168.1.20:8000` → `http://192.168.1.20:8000` (sin barra final).

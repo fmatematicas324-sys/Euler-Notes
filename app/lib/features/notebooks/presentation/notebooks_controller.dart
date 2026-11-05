@@ -19,12 +19,12 @@ class NotebooksController extends AsyncNotifier<List<Notebook>> {
     return notebook;
   }
 
-  Future<void> edit(int id, {String? title, NotebookCover? cover}) async {
+  Future<void> edit(String id, {String? title, NotebookCover? cover}) async {
     await _repository.update(id, title: title, cover: cover);
     await _reload();
   }
 
-  Future<void> delete(int id) async {
+  Future<void> delete(String id) async {
     await _repository.delete(id);
     await _reload();
   }

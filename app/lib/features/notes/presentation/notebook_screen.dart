@@ -17,13 +17,13 @@ class NotebookScreen extends ConsumerWidget {
     required this.title,
   });
 
-  final int notebookId;
+  final String notebookId;
   final String title;
 
   Future<void> _openEditor(
     BuildContext context,
     WidgetRef ref,
-    int noteId,
+    String noteId,
   ) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => NoteEditorScreen(noteId: noteId)),

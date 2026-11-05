@@ -55,7 +55,7 @@ void main() {
     }
   });
 
-  test('las preferencias excluidas solo guardan URL, token y borradores', () {
+  test('las preferencias excluidas solo guardan ajustes y borradores', () {
     // Si se añaden más claves a shared_preferences, revisar si deben
     // respaldarse (y moverlas a otro almacén si es así).
     final source = File('lib/core/server_settings.dart').readAsStringSync();
@@ -63,7 +63,7 @@ void main() {
         .allMatches(source)
         .map((m) => m.group(1))
         .toSet();
-    expect(keys, {'server_url', 'server_token'});
+    expect(keys, {'server_url', 'server_token', 'offline_mode'});
     final writers = Directory('lib')
         .listSync(recursive: true)
         .whereType<File>()
