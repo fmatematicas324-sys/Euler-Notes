@@ -3,9 +3,12 @@
 //   cd backend && EULER_COMPUTE_TIMEOUT=15 \
 //       .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 //
+// El backend exige token: se pasa con --dart-define=API_TOKEN="$(cat backend/data/api_token)"
+//
 // (límite de cálculo amplio: la prueba verifica el flujo, no el rendimiento,
 // y en máquinas cargadas una gráfica puede superar los 5 s por defecto)
 //   cd app && flutter test integration_test -d linux \
+//       --dart-define=API_TOKEN="$(cat ../backend/data/api_token)" \
 //       [--dart-define=SCREENSHOT_DIR=/ruta/capturas] \
 //       [--dart-define=SAMPLE_PDF=/ruta/a/un.pdf]   (activa los pasos de PDF)
 import 'dart:io';
@@ -13,6 +16,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:euler_notes/app.dart';
+import 'package:euler_notes/core/server_settings.dart';
 import 'package:euler_notes/features/documents/data/documents_repository.dart';
 import 'package:euler_notes/features/ink/presentation/ink_canvas.dart';
 import 'package:euler_notes/features/ink/presentation/ink_preview.dart';
@@ -26,6 +30,15 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+
+/// Token del backend de pruebas. **Solo en pruebas de integración**: la app
+/// nunca lee el token de `--dart-define` (se configura en Servidor → Token).
+const _apiToken = String.fromEnvironment('API_TOKEN');
+
+class _TestToken extends ServerTokenController {
+  @override
+  String build() => _apiToken;
+}
 
 const _screenshotDir = String.fromEnvironment('SCREENSHOT_DIR');
 const _samplePdf = String.fromEnvironment('SAMPLE_PDF');
@@ -142,6 +155,7 @@ void main() {
           key: boundaryKey,
           child: ProviderScope(
             overrides: [
+              serverTokenProvider.overrideWith(_TestToken.new),
               if (_samplePdf.isNotEmpty)
                 pdfPickerProvider.overrideWithValue(
                   () async => (

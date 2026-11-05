@@ -8,6 +8,7 @@ import 'config.dart';
 final sharedPreferencesProvider = Provider<SharedPreferences?>((ref) => null);
 
 const _serverUrlKey = 'server_url';
+const _serverTokenKey = 'server_token';
 
 /// URL del backend. Por defecto [apiBaseUrl] (`--dart-define=API_BASE_URL`);
 /// el usuario puede cambiarla (p. ej. la IP de su PC desde una tablet).
@@ -29,6 +30,33 @@ class ServerUrlController extends Notifier<String> {
 
 final serverUrlProvider = NotifierProvider<ServerUrlController, String>(
   ServerUrlController.new,
+);
+
+/// Token de acceso al backend (`Authorization: Bearer`). Lo escribe el usuario
+/// en el diálogo del servidor; nunca se incluye en el código ni en
+/// `--dart-define` de producción.
+///
+/// Se guarda en `shared_preferences`, que **no está cifrado**; ver
+/// `docs/SERVER_SECURITY.md` (propuesta de `flutter_secure_storage`).
+class ServerTokenController extends Notifier<String> {
+  @override
+  String build() =>
+      ref.watch(sharedPreferencesProvider)?.getString(_serverTokenKey) ?? '';
+
+  Future<void> change(String token) async {
+    final trimmed = token.trim();
+    final preferences = ref.read(sharedPreferencesProvider);
+    if (trimmed.isEmpty) {
+      await preferences?.remove(_serverTokenKey);
+    } else {
+      await preferences?.setString(_serverTokenKey, trimmed);
+    }
+    state = trimmed;
+  }
+}
+
+final serverTokenProvider = NotifierProvider<ServerTokenController, String>(
+  ServerTokenController.new,
 );
 
 /// `192.168.1.20:8000` → `http://192.168.1.20:8000` (sin barra final).

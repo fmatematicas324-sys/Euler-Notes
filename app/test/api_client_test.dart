@@ -259,4 +259,58 @@ void main() {
       );
     });
   });
+
+  group('token de acceso', () {
+    test('se envía en todas las peticiones', () async {
+      final seen = <String?>[];
+      final client = ApiClient(
+        MockClient((request) async {
+          seen.add(request.headers['Authorization']);
+          return http.Response.bytes(utf8.encode('{}'), 200);
+        }),
+        token: 'secreto',
+      );
+      await client.get('/a');
+      await client.post('/a', const {});
+      await client.put('/a', const {});
+      await client.delete('/a');
+      await client.getBytes('/a');
+      await client.postForBytes('/a', const {});
+      await client.postBinary(
+        '/a',
+        Uint8List(1),
+        contentType: 'application/pdf',
+      );
+      expect(seen, List.filled(7, 'Bearer secreto'));
+    });
+
+    test('sin token no se envía la cabecera', () async {
+      final client = ApiClient(
+        MockClient((request) async {
+          expect(request.headers.containsKey('Authorization'), isFalse);
+          return http.Response.bytes(utf8.encode('{}'), 200);
+        }),
+      );
+      await client.get('/a');
+    });
+
+    test('un 401 del backend llega como ApiException', () async {
+      final client = ApiClient(
+        MockClient(
+          (_) async => _json({
+            'error': {'code': 'unauthorized', 'message': 'Token incorrecto'},
+          }, 401),
+        ),
+        token: 'otro',
+      );
+      await expectLater(
+        client.get('/notebooks'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'unauthorized')
+              .having((e) => e.statusCode, 'statusCode', 401),
+        ),
+      );
+    });
+  });
 }

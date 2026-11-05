@@ -60,17 +60,70 @@ void main() {
       find.byKey(const Key('server-url')),
       '192.168.1.20:8000',
     );
+    await tester.enterText(
+      find.byKey(const Key('server-token')),
+      '  token-de-la-tablet  ',
+    );
     await tester.tap(find.text('Probar conexión'));
     await tester.pumpAndSettle();
-    expect(find.text('Conectado: backend v0.1.0'), findsOneWidget);
+    expect(
+      find.text('Conectado y autenticado: backend v0.1.0'),
+      findsOneWidget,
+    );
 
     backend.addNotebook('Desde la tablet');
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
     expect(preferences.getString('server_url'), 'http://192.168.1.20:8000');
+    expect(preferences.getString('server_token'), 'token-de-la-tablet');
     expect(hosts, ['http://192.168.1.20:8000']);
     expect(find.text('Desde la tablet'), findsOneWidget);
+    expect(backend.authorizations.last, 'Bearer token-de-la-tablet');
+  });
+
+  testWidgets('un token incorrecto se detecta al probar la conexión', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final preferences = await SharedPreferences.getInstance();
+    final backend = FakeBackend()
+      ..offline = true
+      ..requiredToken = 'el-bueno';
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(preferences),
+        httpClientProvider.overrideWithValue(backend.client),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const EulerNotesApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Configurar servidor'));
+    await tester.pumpAndSettle();
+
+    backend.offline = false;
+    await tester.enterText(find.byKey(const Key('server-token')), 'el-malo');
+    await tester.tap(find.text('Probar conexión'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Token de acceso incorrecto'), findsOneWidget);
+    expect(find.textContaining('Conectado'), findsNothing);
+
+    // El token no se muestra salvo que se pida.
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('server-token')),
+    );
+    expect(field.obscureText, isTrue);
   });
 
   testWidgets('una dirección inválida no se guarda', (tester) async {

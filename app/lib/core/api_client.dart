@@ -15,20 +15,30 @@ class ApiClient {
   ApiClient(
     this._http, {
     String baseUrl = apiBaseUrl,
+    String token = '',
     this.timeouts = const ApiTimeouts(),
-  }) : _baseUri = Uri.parse(baseUrl);
+  }) : _baseUri = Uri.parse(baseUrl),
+       _auth = token.isEmpty ? const {} : {'Authorization': 'Bearer $token'};
 
   final http.Client _http;
   final Uri _baseUri;
+
+  /// Cabecera de autenticación (vacía si no hay token configurado).
+  final Map<String, String> _auth;
 
   /// Tiempos máximos por tipo de petición. Cada método usa uno por defecto y
   /// acepta `timeout` para casos concretos (p. ej. `/compute` o `/health`).
   final ApiTimeouts timeouts;
 
-  static const _jsonHeaders = {'Content-Type': 'application/json'};
+  Map<String, String> get _jsonHeaders => {
+    ..._auth,
+    'Content-Type': 'application/json',
+  };
 
-  Future<dynamic> get(String path, {Duration? timeout}) =>
-      _send(() => _http.get(_uri(path)), timeout ?? timeouts.standard);
+  Future<dynamic> get(String path, {Duration? timeout}) => _send(
+    () => _http.get(_uri(path), headers: _auth),
+    timeout ?? timeouts.standard,
+  );
 
   Future<dynamic> post(String path, Object body, {Duration? timeout}) => _send(
     () => _http.post(_uri(path), headers: _jsonHeaders, body: jsonEncode(body)),
@@ -40,8 +50,10 @@ class ApiClient {
     timeout ?? timeouts.standard,
   );
 
-  Future<void> delete(String path, {Duration? timeout}) =>
-      _send(() => _http.delete(_uri(path)), timeout ?? timeouts.standard);
+  Future<void> delete(String path, {Duration? timeout}) => _send(
+    () => _http.delete(_uri(path), headers: _auth),
+    timeout ?? timeouts.standard,
+  );
 
   /// POST con cuerpo binario (p. ej. un PDF) y respuesta JSON.
   Future<dynamic> postBinary(
@@ -53,7 +65,7 @@ class ApiClient {
   }) => _send(
     () => _http.post(
       _uri(path).replace(queryParameters: query),
-      headers: {'Content-Type': contentType},
+      headers: {..._auth, 'Content-Type': contentType},
       body: body,
     ),
     timeout ?? timeouts.upload,
@@ -62,7 +74,7 @@ class ApiClient {
   /// GET con respuesta binaria (p. ej. un PDF).
   Future<Uint8List> getBytes(String path, {Duration? timeout}) async =>
       (await _request(
-        () => _http.get(_uri(path)),
+        () => _http.get(_uri(path), headers: _auth),
         timeout ?? timeouts.download,
       )).bodyBytes;
 
@@ -172,5 +184,6 @@ final apiClientProvider = Provider<ApiClient>(
   (ref) => ApiClient(
     ref.watch(httpClientProvider),
     baseUrl: ref.watch(serverUrlProvider),
+    token: ref.watch(serverTokenProvider),
   ),
 );
