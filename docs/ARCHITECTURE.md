@@ -164,5 +164,6 @@ Descartados a propósito en v0.1: ORM, router de navegación, Docker y generaci�
 | 4 | Riverpod para el estado | Estándar, testeable, sin generación de código. |
 | 6 | Los PDF se analizan en el subproceso aislado | Son archivos no confiables: pypdf puede tardar o consumir mucha memoria con PDF malformados. |
 | 7 | Portadas, papel e icono dibujados con `CustomPainter` | No hacen falta imágenes ni derechos de terceros; escalan a cualquier densidad y siguen el tema claro u oscuro. |
+| 9 | En Android, el backend corre en un PC de la red local (`--host 0.0.0.0`) | Es lo más rápido para tener el APK. Python embebido o el cálculo en Dart quedan para más adelante. Pendiente: autenticación y TLS antes de usarlo fuera de casa. |
 | 8 | Escritura a mano como bloques ` ```ink ` (no como capa sobre la nota) | La capa se descolocaría al reorganizarse el texto en otros anchos de pantalla. El bloque encaja con el Markdown y con la vista previa. |
 | 5 | Gráficas renderizadas en el backend (matplotlib → PNG), no en Flutter | Reutiliza la evaluación segura de SymPy y la calidad de matplotlib; el cliente solo muestra una imagen. A cambio, hace falta el backend (ver la decisión pendiente sobre Android en el ROADMAP). |

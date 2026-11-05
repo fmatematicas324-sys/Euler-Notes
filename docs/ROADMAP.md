@@ -71,12 +71,12 @@ Modelo elegido: **bloques de dibujo** (` ```ink `) dentro de las notas.
 ## Fase 4 — v0.4 APK para tablet Android
 - [x] ~~Teclado de símbolos científicos~~: adelantado a la v0.2. Pendiente aquí: adaptarlo a pantalla táctil y como teclado del panel de cálculo.
 - [ ] Plataforma Android: `flutter create --platforms android`, interfaz adaptada a tablet (horizontal y vertical) y pruebas en un emulador de tablet.
-- [ ] Toolchain Android: Android SDK y licencias (**dependencia pesada, consultar antes de instalar**).
-- [ ] `flutter build apk --release`: firma, icono, nombre y versión.
+- [x] Toolchain Android: se compila en GitHub Actions (`.github/workflows/android-apk.yml`), que ya trae el Android SDK.
+- [x] `flutter build apk --release`: icono, nombre y versión 0.4.0; se publica como Release `v0.4.0`. Firma: clave debug de CI (pendiente una clave propia en secretos).
 
 **Salida:** APK instalable en una tablet Android con las funciones de v0.1–v0.4. El icono adaptable se genera con `tool/generate_app_icons_test.dart`. Se etiqueta `v0.4.0`.
 
-### ⚠️ Decisión de arquitectura pendiente (antes de la v0.4)
+### ✅ Decisión de arquitectura (v0.4): backend en la red local (opción 1)
 El backend Python (FastAPI + SymPy + matplotlib) corre hoy en el mismo equipo que la app; en Android eso no funciona tal cual. Opciones:
 1. **Backend remoto o en la red local:** la tablet se conecta a un PC o servidor. Es lo más simple, pero necesita red y requiere autenticación y TLS.
 2. **Python embebido en el APK** (p. ej. Chaquopy o `serious_python`): funciona sin conexión, pero el APK pesa más (unos 50–100 MB) y la compilación se complica.

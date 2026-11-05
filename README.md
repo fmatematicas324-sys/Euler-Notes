@@ -20,4 +20,12 @@ export PATH="$HOME/development/flutter/bin:$PATH"
 flutter doctor
 ```
 
+## APK para Android
+GitHub Actions compila el APK en cada push que toca `app/` y lo publica en *Releases* (`v0.4.0`).
+La app usa el backend de un PC en la misma WiFi:
+```bash
+cd backend && .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+En la app: icono de servidor → `http://IP-DEL-PC:8000`.
+
 Más detalles en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) y [`docs/ROADMAP.md`](docs/ROADMAP.md).
