@@ -118,7 +118,8 @@ updated_at  TEXT (ISO 8601)   content      TEXT  (Markdown + LaTeX)
 - **Tiempo máximo de 5 s** por operación (`CUADERNO_COMPUTE_TIMEOUT`). `/compute` y `/plot` se ejecutan en `services/sandbox.py`: un subproceso nacido de un `forkserver` con SymPy, numpy y matplotlib precargados (y con matplotlib ya calentado), con **1 GiB** de memoria máxima (`RLIMIT_AS`). Si se pasa del tiempo se mata (error 408). El forkserver arranca en segundo plano al iniciar el servidor (unos 3–4 s).
 - `/plot` valida cada expresión igual que `/compute`, exige que solo dependa de la variable y evalúa con `lambdify` sobre numpy (o punto a punto con mpmath cuando no hay versión vectorizada). Corta las asíntotas, se queda solo con los valores reales y, si no se indica el rango de `y`, lo calcula por percentiles. Usa `Figure` + Agg, sin `pyplot` ni estado global.
 - Los nombres desconocidos (p. ej. `eval`, `system`) se convierten en símbolos inertes de SymPy; nunca se resuelven a funciones de Python.
-- CORS: solo orígenes `http://localhost:*` y `http://127.0.0.1:*`. El servidor escucha solo en `127.0.0.1`.
+- CORS: solo orígenes `http://localhost:*` y `http://127.0.0.1:*`. El servidor escucha por defecto en `127.0.0.1`.
+- Desde la Misión 003: token de acceso obligatorio (también en local), filtro de origen (loopback y redes privadas) y máximo 2 tareas aisladas simultáneas. Ver `docs/SERVER_SECURITY.md`.
 
 ## 6. Interfaz y renderizado en Flutter
 - **Pantallas:** `NotebooksScreen` → `NotebookScreen` → `NoteEditorScreen`, con `Navigator` y `MaterialPageRoute`.
@@ -156,6 +157,9 @@ Descartados a propósito en v0.1: ORM, router de navegación, Docker y generaci�
 - **Tests:** todo endpoint y servicio nuevo lleva su test; una tarea no está terminada sin `pytest` y `flutter analyze/test` en verde.
 
 ## 9. Decisiones de arquitectura (ADR resumidas)
+
+> Desde la Misión 002, el registro principal es `docs/DECISIONS.md` (incluye las propuestas ADR 10–15).
+
 | # | Decisión | Motivo |
 |---|---|---|
 | 1 | Backend Python local en lugar de solo Dart | SymPy no tiene equivalente maduro en Dart. |
@@ -164,5 +168,6 @@ Descartados a propósito en v0.1: ORM, router de navegación, Docker y generaci�
 | 4 | Riverpod para el estado | Estándar, testeable, sin generación de código. |
 | 6 | Los PDF se analizan en el subproceso aislado | Son archivos no confiables: pypdf puede tardar o consumir mucha memoria con PDF malformados. |
 | 7 | Portadas, papel e icono dibujados con `CustomPainter` | No hacen falta imágenes ni derechos de terceros; escalan a cualquier densidad y siguen el tema claro u oscuro. |
+| 9 | En Android, el backend corre en un PC de la red local (`--host 0.0.0.0`) | Es lo más rápido para tener el APK. Python embebido o el cálculo en Dart quedan para más adelante. Pendiente: autenticación y TLS antes de usarlo fuera de casa. |
 | 8 | Escritura a mano como bloques ` ```ink ` (no como capa sobre la nota) | La capa se descolocaría al reorganizarse el texto en otros anchos de pantalla. El bloque encaja con el Markdown y con la vista previa. |
 | 5 | Gráficas renderizadas en el backend (matplotlib → PNG), no en Flutter | Reutiliza la evaluación segura de SymPy y la calidad de matplotlib; el cliente solo muestra una imagen. A cambio, hace falta el backend (ver la decisión pendiente sobre Android en el ROADMAP). |

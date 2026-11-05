@@ -1,6 +1,6 @@
-# Cuaderno Científico — App Flutter
+# Euler Notes — App Flutter
 
-Interfaz de Cuaderno Científico (Web y Linux en v0.1).
+Interfaz de Euler Notes (Cuaderno Científico): tablet Android, Linux y Web.
 
 ## Ejecutar
 Arranca primero el backend (`backend/`, puerto 8000) y después:

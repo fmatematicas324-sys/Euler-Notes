@@ -60,12 +60,12 @@ def test_missing_notebook_returns_404(client: TestClient) -> None:
 
 
 def test_data_persists_across_restarts(tmp_path, monkeypatch) -> None:
-    from app.main import create_app
+    from tests.conftest import make_client
 
     monkeypatch.setenv("CUADERNO_DB_PATH", str(tmp_path / "persist.db"))
-    with TestClient(create_app()) as first:
+    with make_client() as first:
         first.post("/notebooks", json={"title": "Persistente"})
-    with TestClient(create_app()) as second:
+    with make_client() as second:
         titles = [nb["title"] for nb in second.get("/notebooks").json()]
     assert titles == ["Persistente"]
 
@@ -92,7 +92,7 @@ def test_migrates_v01_database(tmp_path, monkeypatch) -> None:
     import sqlite3
     from pathlib import Path
 
-    from app.main import create_app
+    from tests.conftest import make_client
 
     db_path = tmp_path / "v01.db"
     schema = (Path(__file__).parent.parent / "app" / "storage" / "schema.sql").read_text()
@@ -108,7 +108,7 @@ def test_migrates_v01_database(tmp_path, monkeypatch) -> None:
     conn.close()
 
     monkeypatch.setenv("CUADERNO_DB_PATH", str(db_path))
-    with TestClient(create_app()) as client:
+    with make_client() as client:
         notebook = client.get("/notebooks").json()[0]
         assert (notebook["title"], notebook["cover"]) == ("Viejo", "classic")
         note = client.get("/notes/1").json()
@@ -120,5 +120,5 @@ def test_migrates_v01_database(tmp_path, monkeypatch) -> None:
 
         assert conn.execute("PRAGMA user_version").fetchone()[0] == len(_MIGRATIONS)
     conn.close()
-    with TestClient(create_app()) as client:  # segunda vez: no repite migraciones
+    with make_client() as client:  # segunda vez: no repite migraciones
         assert client.get("/notebooks").status_code == 200

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copia de seguridad automática en Android 6–11 (API 23–30), y en Android 12+
+     si una app con targetSdk < 31 la usara. Ver docs/SERVER_SECURITY.md §4.
+
+     Se excluye SOLO FlutterSharedPreferences.xml (shared_preferences, API
+     SharedPreferences.getInstance), que guarda la dirección del servidor y el
+     token de acceso. El resto de datos de la app sigue respaldándose. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="FlutterSharedPreferences.xml" />
+</full-backup-content>

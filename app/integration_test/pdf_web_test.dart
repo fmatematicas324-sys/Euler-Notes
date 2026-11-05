@@ -2,20 +2,32 @@
 // ya importado cuyo nombre se pasa en PDF_NAME:
 //
 //   curl -X POST "http://127.0.0.1:8001/documents?filename=muestra-web.pdf" \
+//        -H "Authorization: Bearer $(cat backend/data/api_token)" \
 //        -H "Content-Type: application/pdf" --data-binary @un.pdf
 //   chromedriver --port=4444 &
 //   cd app && flutter drive -d web-server --browser-name=chrome --headless \
 //       --driver=test_driver/integration_test.dart \
 //       --target=integration_test/pdf_web_test.dart \
 //       --dart-define=API_BASE_URL=http://127.0.0.1:8001 \
-//       --dart-define=PDF_NAME=muestra-web.pdf
+//       --dart-define=PDF_NAME=muestra-web.pdf \
+//       --dart-define=API_TOKEN="$(cat ../backend/data/api_token)"
 import 'package:euler_notes/app.dart';
+import 'package:euler_notes/core/server_settings.dart';
 import 'package:euler_notes/features/notebooks/presentation/notebook_cover_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:pdfrx/pdfrx.dart';
+
+/// Token del backend de pruebas. **Solo en pruebas de integración**: la app
+/// nunca lee el token de `--dart-define` (se configura en Servidor → Token).
+const _apiToken = String.fromEnvironment('API_TOKEN');
+
+class _TestToken extends ServerTokenController {
+  @override
+  String build() => _apiToken;
+}
 
 const _pdfName = String.fromEnvironment(
   'PDF_NAME',
@@ -56,7 +68,12 @@ void main() {
     binding.testTextInput.register();
     try {
       final title = 'Web ${DateTime.now().millisecondsSinceEpoch}';
-      await tester.pumpWidget(const ProviderScope(child: EulerNotesApp()));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [serverTokenProvider.overrideWith(_TestToken.new)],
+          child: const EulerNotesApp(),
+        ),
+      );
       await waitFor(
         tester,
         find.byWidgetPredicate(

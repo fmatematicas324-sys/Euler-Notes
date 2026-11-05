@@ -108,6 +108,13 @@ class FakeBackend {
   /// Si es `true`, todas las peticiones fallan como si no hubiera conexión.
   bool offline = false;
 
+  /// Si no es `null`, imita al backend real: todo salvo `/health` exige
+  /// `Authorization: Bearer <requiredToken>` y responde 401 si falta.
+  String? requiredToken;
+
+  /// Cabecera `Authorization` de cada petición recibida.
+  final authorizations = <String?>[];
+
   /// Respuesta de `/compute`: (status, cuerpo).
   (int, Map<String, dynamic>) Function(Map<String, dynamic> request) onCompute =
       (_) => (200, {'result_latex': r'2 x', 'result_text': '2*x'});
@@ -159,10 +166,25 @@ class FakeBackend {
         ? <String, dynamic>{}
         : jsonDecode(request.body) as Map<String, dynamic>;
     final segments = request.url.pathSegments;
+    authorizations.add(request.headers['Authorization']);
+
+    final isHealth = request.method == 'GET' && segments.join('/') == 'health';
+    if (requiredToken != null &&
+        !isHealth &&
+        request.headers['Authorization'] != 'Bearer $requiredToken') {
+      return _json({
+        'error': {
+          'code': 'unauthorized',
+          'message': 'Token de acceso incorrecto o ausente',
+        },
+      }, 401);
+    }
 
     switch ((request.method, segments)) {
       case ('GET', ['health']):
         return _json({'status': 'ok', 'version': '0.1.0'});
+      case ('GET', ['auth', 'check']):
+        return _json({'authenticated': true});
       case ('GET', ['notebooks']):
         return _json(notebooks.values.toList().reversed.toList());
       case ('POST', ['notebooks']):

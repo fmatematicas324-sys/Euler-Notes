@@ -18,6 +18,10 @@ class _ServerDialog extends ConsumerStatefulWidget {
 
 class _ServerDialogState extends ConsumerState<_ServerDialog> {
   late final _url = TextEditingController(text: ref.read(serverUrlProvider));
+  late final _token = TextEditingController(
+    text: ref.read(serverTokenProvider),
+  );
+  bool _showToken = false;
   String? _error;
   String? _result;
   bool _testing = false;
@@ -25,6 +29,7 @@ class _ServerDialogState extends ConsumerState<_ServerDialog> {
   @override
   void dispose() {
     _url.dispose();
+    _token.dispose();
     super.dispose();
   }
 
@@ -42,12 +47,18 @@ class _ServerDialogState extends ConsumerState<_ServerDialog> {
       _result = null;
     });
     try {
-      final body = await ApiClient(
+      final api = ApiClient(
         ref.read(httpClientProvider),
         baseUrl: url,
-      ).get('/health');
+        token: _token.text.trim(),
+      );
+      final body = await api.get('/health', timeout: api.timeouts.health);
       final version = (body as Map<String, dynamic>)['version'];
-      if (mounted) setState(() => _result = 'Conectado: backend v$version');
+      // /health es público: /auth/check confirma además que el token es válido.
+      await api.get('/auth/check', timeout: api.timeouts.health);
+      if (mounted) {
+        setState(() => _result = 'Conectado y autenticado: backend v$version');
+      }
     } on Object catch (e) {
       if (mounted) setState(() => _error = errorMessage(e));
     } finally {
@@ -58,6 +69,7 @@ class _ServerDialogState extends ConsumerState<_ServerDialog> {
   Future<void> _save() async {
     try {
       await ref.read(serverUrlProvider.notifier).change(_url.text);
+      await ref.read(serverTokenProvider.notifier).change(_token.text);
       if (mounted) Navigator.of(context).pop();
     } on FormatException catch (e) {
       setState(() => _error = e.message);
@@ -86,6 +98,29 @@ class _ServerDialogState extends ConsumerState<_ServerDialog> {
                     'En una tablet: la IP del PC con el backend, '
                     'p. ej. http://192.168.1.20:8000',
                 helperMaxLines: 2,
+              ),
+              onSubmitted: (_) => _save(),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('server-token'),
+              controller: _token,
+              obscureText: !_showToken,
+              autocorrect: false,
+              enableSuggestions: false,
+              decoration: InputDecoration(
+                labelText: 'Token de acceso',
+                helperText:
+                    'Está en el PC, en backend/data/api_token. '
+                    'Sin HTTPS viaja sin cifrar por la WiFi.',
+                helperMaxLines: 2,
+                suffixIcon: IconButton(
+                  tooltip: _showToken ? 'Ocultar token' : 'Mostrar token',
+                  icon: Icon(
+                    _showToken ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () => setState(() => _showToken = !_showToken),
+                ),
               ),
               onSubmitted: (_) => _save(),
             ),

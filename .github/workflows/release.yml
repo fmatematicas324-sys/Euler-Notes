@@ -1,0 +1,89 @@
+# Release: solo al subir un tag v*. Crea un BORRADOR; publicarlo es manual.
+# La versión sale de app/pubspec.yaml (fuente única); el tag debe coincidir
+# (tool/check_versions.py).
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Comprobar versión
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Comparar el tag con pubspec.yaml y pyproject.toml
+        run: python3 tool/check_versions.py --tag "${GITHUB_REF_NAME}"
+
+      - id: read
+        name: Leer la versión
+        run: |
+          VERSION=$(sed -n 's/^version: *\([^+ ]*\).*/\1/p' app/pubspec.yaml)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+  tests:
+    name: Pruebas
+    needs: version
+    uses: ./.github/workflows/ci.yml
+
+  draft:
+    name: Borrador de release
+    needs: [version, tests]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.9"
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      - name: Compilar APK
+        run: flutter build apk --release
+
+      - name: Nombre y suma SHA-256
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk "build/euler-notes-$VERSION.apk"
+          cd build && sha256sum "euler-notes-$VERSION.apk" > "euler-notes-$VERSION.apk.sha256"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: true
+          name: Euler Notes v${{ needs.version.outputs.version }}
+          fail_on_unmatched_files: true
+          files: |
+            app/build/euler-notes-*.apk
+            app/build/euler-notes-*.apk.sha256
+          body: |
+            Borrador creado automáticamente. Revisar antes de publicar.
+
+            Firma: clave debug temporal de CI (ver docs/SIGNING.md).
+            Requiere el backend en un PC de la red local (ADR 9).
