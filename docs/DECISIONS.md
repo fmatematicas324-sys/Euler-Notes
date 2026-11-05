@@ -17,7 +17,8 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 
 ---
 
-## ADR 10 — Almacenamiento local: Drift sobre `package:sqlite3` · **Propuesta**
+## ADR 10 — Almacenamiento local: Drift sobre `package:sqlite3` · **Aceptada** (Misión 014, 2026-11-05)
+- **Decisión [H]:** el prototipo cumple todos los criterios en la tablet Android 13 del dueño (autoguardado 0,33 ms, trazo 0,78 ms, abrir cuaderno 2 ms, tinta de una página 9 ms, FTS5 disponible, WAL). Detalle en `product_research/prototipo_almacenamiento.md`. Se descarta el plan B (`sqlite3` directo).
 - **Contexto [H]:** el objetivo aprobado es que la app funcione sin conexión y que SQLite local sea la fuente principal de datos.
 - **Propuesta [P]:** usar Drift 2.x como capa de persistencia de la app. Es SQL tipado, admite consultas reactivas (streams) y permite migraciones versionadas y comprobables.
 - **Alternativas:** `sqflite` (+ `sqflite_common_ffi` en Linux), `sqlite3` directo, ObjectBox, Isar (comunidad), Sembast y Hive CE. La comparación está en `product_research/arquitectura_tecnica.md §2`.

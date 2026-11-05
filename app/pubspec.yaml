@@ -41,6 +41,9 @@ dependencies:
   pdfrx: ^2.11.0
   file_selector: ^1.1.0
   shared_preferences: ^2.5.6
+  # Base de datos local (Etapa 2, ADR 10; prototipo de la Misión 014).
+  drift: ^2.35.3
+  drift_flutter: ">=0.2.8 <0.4.0"
 
 dev_dependencies:
   flutter_test:
@@ -54,6 +57,9 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   integration_test:
     sdk: flutter
+  # Generación de código de Drift: `dart run build_runner build`.
+  drift_dev: ">=2.33.0 <3.0.0"
+  build_runner: ^2.4.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

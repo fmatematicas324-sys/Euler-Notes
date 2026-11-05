@@ -74,6 +74,8 @@ jobs:
           cache: true
 
       - run: flutter pub get
+      - name: Generar código (Drift)
+        run: dart run build_runner build --delete-conflicting-outputs
       - run: flutter analyze
       - run: flutter test
 
@@ -101,6 +103,9 @@ jobs:
           cache: true
 
       - run: flutter pub get
+
+      - name: Generar código (Drift)
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: Clave de firma (secretos)
         env:

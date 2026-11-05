@@ -16,6 +16,7 @@ Formato basado en *Keep a Changelog*. Versionado semántico. Reconstruido a part
 - Máximo 2 tareas aisladas simultáneas (`EULER_MAX_PARALLEL_TASKS`); si no hay hueco, 503 `server_busy`.
 - App: campo «Token de acceso» (oculto) en el diálogo del servidor; «Probar conexión» valida el token con `/auth/check`.
 ### Añadido
+- Misión 014 (Etapa 2, prototipo): base de datos local con Drift y pantalla «Laboratorio» que mide su rendimiento en el dispositivo. No cambia dónde se guardan las notas.
 - Misión 013: borrador local de cada nota, reintento automático del guardado y diálogo para recuperar cambios que no llegaron al servidor.
 - Misión 012: diagramas `contour` (curvas de nivel), `vector_field` (flechas o líneas de campo, con divergencia y rotacional) y `curve3d` (curvas paramétricas), con sus bloques ` ```diagram ` y plantillas.
 - Misión 011: `python -m app.pair` (dirección y token con QR, `--rotar`), `tool/install_service.sh` (servicio de systemd) y `docs/CONEXION.md`. Nueva dependencia ligera: `segno`.

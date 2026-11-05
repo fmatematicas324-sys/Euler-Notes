@@ -7,6 +7,7 @@ import '../../../core/widgets/dialogs.dart';
 import '../../../core/widgets/feedback.dart';
 import '../../../core/widgets/server_dialog.dart';
 import '../../../core/widgets/state_views.dart';
+import '../../lab/storage_lab_screen.dart';
 import '../../notes/presentation/notebook_screen.dart';
 import '../domain/notebook.dart';
 import 'notebook_cover_card.dart';
@@ -95,6 +96,13 @@ class NotebooksScreen extends ConsumerWidget {
             tooltip: 'Servidor',
             icon: const Icon(Icons.dns_outlined),
             onPressed: () => showServerDialog(context),
+          ),
+          IconButton(
+            tooltip: 'Laboratorio',
+            icon: const Icon(Icons.science_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const StorageLabScreen()),
+            ),
           ),
         ],
       ),
