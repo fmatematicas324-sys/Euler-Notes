@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Código generado por build_runner (Drift): se genera en CI y en local con
+# `dart run build_runner build --delete-conflicting-outputs`.
+*.g.dart
