@@ -36,12 +36,21 @@ import 'plot_spec.dart';
 /// B -> C               ← «->» hace el grafo dirigido
 /// ```
 ///
+/// ```diagram
+/// tipo: superficie     ← z = f(x, y) en 3D
+/// f: x^2 + y^2
+/// x: -5, 5             ← (opcionales) rangos de x e y
+/// y: -5, 5
+/// vars: u, v           ← (opcional) otras variables (rangos «u:» y «v:»)
+/// curvas: no           ← (opcional) sin curvas de nivel en la base
+/// ```
+///
 /// Los decimales se escriben con punto (`9.8`); la coma separa valores.
 @immutable
 class DiagramSpec implements FigureSpec {
   const DiagramSpec._(this.kind, this.params, this.description);
 
-  /// `function`, `forces`, `projectile` o `graph` (valor de la API).
+  /// `function`, `forces`, `projectile`, `graph` o `surface` (valor de la API).
   final String kind;
   final Map<String, Object> params;
 
@@ -93,6 +102,9 @@ class DiagramSpec implements FigureSpec {
     'grafo': 'graph',
     'graph': 'graph',
     'red': 'graph',
+    'superficie': 'surface',
+    'surface': 'surface',
+    '3d': 'surface',
   };
 
   /// Plantillas para insertar desde el editor (título → bloque completo).
@@ -103,6 +115,8 @@ class DiagramSpec implements FigureSpec {
         '```diagram\ntipo: proyectil\nv0: 20\nangulo: 45\ng: 9.81\n```',
     'Grafo':
         '```diagram\ntipo: grafo\nA - B: 4\nB - C: 2\nC - A: 5\nC - D: 1\n```',
+    'Superficie 3D':
+        '```diagram\ntipo: superficie\nf: x^2 + y^2\nx: -3, 3\ny: -3, 3\n```',
   };
 
   /// Bloque `tipo: funcion` que representa una operación de `/compute`.
@@ -145,7 +159,8 @@ class DiagramSpec implements FigureSpec {
     }
     if (kindText == null) {
       throw const FormatException(
-        'Indica el tipo: «tipo: funcion», «fuerzas», «proyectil» o «grafo»',
+        'Indica el tipo: «tipo: funcion», «fuerzas», «proyectil», '
+        '«grafo» o «superficie»',
       );
     }
     return switch (_kinds[_normalize(kindText)]) {
@@ -153,8 +168,10 @@ class DiagramSpec implements FigureSpec {
       'forces' => _forces(body),
       'projectile' => _projectile(body),
       'graph' => _graph(body),
+      'surface' => _surface(body),
       _ => throw FormatException(
-        'Tipo desconocido: «$kindText» (usa funcion, fuerzas, proyectil o grafo)',
+        'Tipo desconocido: «$kindText» '
+        '(usa funcion, fuerzas, proyectil, grafo o superficie)',
       ),
     };
   }
@@ -244,6 +261,55 @@ class DiagramSpec implements FigureSpec {
       'x_min': xMin,
       'x_max': xMax,
     }, 'Diagrama de $expr');
+  }
+
+  static DiagramSpec _surface(List<String> body) {
+    final settings = _settings(body);
+    final expr =
+        settings.remove('f') ?? settings.remove('z') ?? settings.remove('expr');
+    if (expr == null || expr.isEmpty) {
+      throw const FormatException('Falta la función: «f: x^2 + y^2»');
+    }
+    var (varX, varY) = ('x', 'y');
+    final varsText = settings.remove('vars');
+    if (varsText != null) {
+      final names = varsText.split(RegExp(r'\s*[,;]\s*|\s+'));
+      if (names.length != 2) {
+        throw const FormatException('Variables: usa «vars: u, v»');
+      }
+      (varX, varY) = (names[0], names[1]);
+    }
+    for (final name in [varX, varY]) {
+      if (!_variableName.hasMatch(name)) {
+        throw FormatException('Variable no válida: $name');
+      }
+    }
+    if (varX == varY) {
+      throw const FormatException('Las dos variables deben ser distintas');
+    }
+    final xRange = settings.remove(varX.toLowerCase());
+    final yRange = settings.remove(varY.toLowerCase());
+    final (xMin, xMax) = xRange == null
+        ? (-5.0, 5.0)
+        : PlotSpec.parseRange(varX, xRange);
+    final (yMin, yMax) = yRange == null
+        ? (-5.0, 5.0)
+        : PlotSpec.parseRange(varY, yRange);
+    final contoursText = settings.remove('curvas');
+    final contours =
+        contoursText == null ||
+        !['no', 'false', '0'].contains(_normalize(contoursText));
+    _rejectUnknown(settings);
+    return DiagramSpec._('surface', {
+      'expr': expr,
+      'var_x': varX,
+      'var_y': varY,
+      'x_min': xMin,
+      'x_max': xMax,
+      'y_min': yMin,
+      'y_max': yMax,
+      'contours': contours,
+    }, 'Superficie z = $expr');
   }
 
   static DiagramSpec _forces(List<String> body) {

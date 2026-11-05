@@ -5,6 +5,7 @@
 - `forces`: diagrama de cuerpo libre con resultante.
 - `projectile`: tiro parabólico con altura máxima, alcance y tiempo de vuelo.
 - `graph`: grafo (teoría de grafos, redes, circuitos) dibujado con NetworkX.
+- `surface`: superficie z = f(x, y) en 3D con curvas de nivel en la base.
 
 Recibe un `dict` ya validado por Pydantic (`DiagramRequest`). Se ejecuta en el
 subproceso aislado (`sandbox`).
@@ -16,18 +17,27 @@ from typing import Any
 import networkx as nx
 import numpy as np
 import sympy as sp
+from matplotlib import colormaps
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
+from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from app.services import plotting as pl
 from app.services import sympy_engine as engine
 
 MAX_MARKERS = 10
+SURFACE_SAMPLES = 60  # nodos por eje de la malla 3D (59 × 59 caras)
 
 
 def validate_diagram(spec: dict[str, Any]) -> None:
     """Validación barata en el proceso principal. Lanza ExpressionError."""
     if spec["kind"] == "function":
         engine.validate(spec["expr"], spec["op"])
+    elif spec["kind"] == "surface":
+        engine.validate(spec["expr"], "simplify")
 
 
 def render_diagram(spec: dict[str, Any]) -> bytes:
@@ -36,6 +46,7 @@ def render_diagram(spec: dict[str, Any]) -> bytes:
         "forces": _forces,
         "projectile": _projectile,
         "graph": _graph,
+        "surface": _surface,
     }
     return renderers[spec["kind"]](spec)
 
@@ -61,9 +72,10 @@ def _parse_in(text: str, var: sp.Symbol) -> sp.Expr:
     expr = engine.parse(text)
     extra = sorted(str(s) for s in expr.free_symbols - {var})
     if extra:
+        hint = " Para f(x, y) usa «tipo: superficie»." if len(extra) == 1 else ""
         raise engine.ExpressionError(
             f"Para dibujarla, «{text.strip()}» solo puede depender de {var} "
-            f"(contiene {', '.join(extra)})"
+            f"(contiene {', '.join(extra)}).{hint}"
         )
     return expr
 
@@ -358,4 +370,105 @@ def _graph(spec: dict[str, Any]) -> bytes:
         f"Grafo {kind}: {graph.number_of_nodes()} nodos, {graph.number_of_edges()} aristas",
         fontsize=11,
     )
+    return pl.to_png(fig, ax, theme, legend=False)
+
+
+# --- Superficies 3D ----------------------------------------------------------------
+
+
+def _sample_grid(
+    expr: sp.Expr, x: sp.Symbol, y: sp.Symbol, xx: np.ndarray, yy: np.ndarray
+) -> np.ndarray:
+    """Valores reales de `expr` en la malla; NaN donde no hay valor real."""
+    fn = sp.lambdify((x, y), expr, modules="numpy")
+    with np.errstate(all="ignore"):
+        try:
+            values = np.broadcast_to(np.asarray(fn(xx, yy), dtype=complex), xx.shape)
+        except Exception:
+            # Sin versión vectorizada en numpy: punto a punto con mpmath.
+            scalar_fn = sp.lambdify((x, y), expr, modules="mpmath")
+
+            def point(a: float, b: float) -> complex:
+                try:
+                    return complex(scalar_fn(float(a), float(b)))
+                except Exception:
+                    return complex("nan")
+
+            values = np.vectorize(point, otypes=[complex])(xx, yy)
+        real_valued = np.abs(values.imag) <= 1e-9 * np.maximum(1.0, np.abs(values.real))
+        zz = np.where(real_valued, values.real, np.nan)
+    zz[~np.isfinite(zz)] = np.nan
+    return zz
+
+
+def _surface(spec: dict[str, Any]) -> bytes:
+    theme, text = spec["theme"], spec["expr"]
+    engine.validate(text, "simplify")
+    x, y = sp.Symbol(spec["var_x"]), sp.Symbol(spec["var_y"])
+    expr = engine.parse(text)
+    extra = sorted(str(s) for s in expr.free_symbols - {x, y})
+    if extra:
+        raise engine.ExpressionError(
+            f"«{text.strip()}» solo puede depender de {x} e {y} (contiene {', '.join(extra)})"
+        )
+
+    xs = np.linspace(spec["x_min"], spec["x_max"], SURFACE_SAMPLES)
+    ys = np.linspace(spec["y_min"], spec["y_max"], SURFACE_SAMPLES)
+    xx, yy = np.meshgrid(xs, ys)
+    zz = _sample_grid(expr, x, y, xx, yy)
+    # Mismo criterio que en 2D: percentiles para que los polos no aplasten la gráfica.
+    z_min, z_max = pl.auto_y_range([zz.ravel()])
+    span = z_max - z_min
+    zz[(zz < z_min - span) | (zz > z_max + span)] = np.nan
+    zz = np.clip(zz, z_min, z_max)
+
+    # Caras de la malla construidas a mano: se descartan las que tienen algún
+    # vértice sin valor real (p. ej. fuera del dominio de sqrt), sin depender de
+    # cómo trate cada versión de matplotlib los NaN en `plot_surface`.
+    corners = np.stack(
+        [
+            np.stack([xx[:-1, :-1], yy[:-1, :-1], zz[:-1, :-1]], axis=-1),
+            np.stack([xx[:-1, 1:], yy[:-1, 1:], zz[:-1, 1:]], axis=-1),
+            np.stack([xx[1:, 1:], yy[1:, 1:], zz[1:, 1:]], axis=-1),
+            np.stack([xx[1:, :-1], yy[1:, :-1], zz[1:, :-1]], axis=-1),
+        ],
+        axis=2,
+    ).reshape(-1, 4, 3)
+    finite = np.isfinite(corners).all(axis=(1, 2))
+    if not finite.any():
+        raise engine.ComputeFailure("La función no tiene valores reales en la región indicada")
+    faces = corners[finite]
+    cmap = colormaps["viridis"]
+    norm = Normalize(z_min, z_max)
+    ink = pl.INK[theme]
+
+    fig = Figure(figsize=(spec["width"] / 100, spec["height"] / 100), dpi=100 * spec["scale"])
+    FigureCanvasAgg(fig)
+    ax = fig.add_subplot(projection="3d")
+    ax.set_facecolor("none")
+    ax.add_collection3d(
+        Poly3DCollection(
+            faces, facecolors=cmap(norm(faces[:, :, 2].mean(axis=1))),
+            edgecolors=ink["grid"], linewidths=0.15, alpha=0.95,
+        )
+    )  # fmt: skip
+    if spec.get("contours", True) and span > 1e-12:
+        ax.contour(
+            xx, yy, np.ma.masked_invalid(zz), levels=10, zdir="z", offset=z_min,
+            cmap=cmap, norm=norm, linewidths=1,
+        )  # fmt: skip
+    ax.set_xlim(spec["x_min"], spec["x_max"])
+    ax.set_ylim(spec["y_min"], spec["y_max"])
+    ax.set_zlim(z_min, z_max)
+    ax.set_xlabel(str(x))
+    ax.set_ylabel(str(y))
+    ax.set_zlabel("z")
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        axis.set_pane_color((1.0, 1.0, 1.0, 0.0))
+        axis.set_tick_params(colors=ink["text"], labelsize=8)
+        axis.label.set_color(ink["text"])
+    colorbar = fig.colorbar(ScalarMappable(norm=norm, cmap=cmap), ax=ax, shrink=0.6, pad=0.1)
+    colorbar.ax.tick_params(colors=ink["text"], labelsize=8)
+    colorbar.outline.set_edgecolor(ink["grid"])
+    ax.set_title(pl.math_label(expr, "z = "), fontsize=11)
     return pl.to_png(fig, ax, theme, legend=False)

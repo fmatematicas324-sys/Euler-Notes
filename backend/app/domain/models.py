@@ -181,8 +181,32 @@ class GraphDiagram(FigureOptions):
     directed: bool = False
 
 
+class SurfaceDiagram(FigureOptions):
+    """Superficie z = f(x, y) en 3D, con curvas de nivel opcionales en la base."""
+
+    kind: Literal["surface"]
+    expr: Expression
+    var_x: VariableName = "x"
+    var_y: VariableName = "y"
+    x_min: Coordinate = -5.0
+    x_max: Coordinate = 5.0
+    y_min: Coordinate = -5.0
+    y_max: Coordinate = 5.0
+    contours: bool = True
+
+    @model_validator(mode="after")
+    def _check_ranges(self) -> "SurfaceDiagram":
+        if self.var_x == self.var_y:
+            raise ValueError("var_x y var_y deben ser variables distintas")
+        if self.x_min >= self.x_max:
+            raise ValueError("x_min debe ser menor que x_max")
+        if self.y_min >= self.y_max:
+            raise ValueError("y_min debe ser menor que y_max")
+        return self
+
+
 DiagramRequest = Annotated[
-    FunctionDiagram | ForcesDiagram | ProjectileDiagram | GraphDiagram,
+    FunctionDiagram | ForcesDiagram | ProjectileDiagram | GraphDiagram | SurfaceDiagram,
     Field(discriminator="kind"),
 ]
 

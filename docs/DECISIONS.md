@@ -56,6 +56,11 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - El token no se incrusta en el código ni en `--dart-define` de producción; lo introduce el usuario.
 - Pendiente: TLS y almacenamiento cifrado (`flutter_secure_storage`), cada uno con su propuesta.
 
+## ADR 18 — Superficies 3D renderizadas en el backend · **Aceptada** (Misión 008)
+- Se dibujan con matplotlib (`mplot3d`) como un tipo más de `/diagram`; el cliente solo muestra el PNG, como el resto de figuras. Sin dependencias nuevas.
+- Las caras se construyen a mano (`Poly3DCollection`) para descartar las que tienen vértices sin valor real, en vez de depender del trato de los NaN en `plot_surface`, que varía entre versiones.
+- Imagen estática: no se puede girar. Una vista interactiva exigiría render en el cliente y se valorará con la arquitectura sin conexión (ADR 10–14).
+
 ## Decisiones aplazadas
 - Sincronización (PowerSync, servidor propio o CRDT): después del MVP sin conexión.
 - Reconocimiento de escritura a mano y de fórmulas (ML Kit Digital Ink, MyScript SDK u otro modelo): requiere estudiar licencias y funcionamiento sin conexión.
