@@ -16,5 +16,7 @@ Investigación **funcional**: se estudia el comportamiento visible y las funcion
 | `vision_producto.md` | Visión e identidad propia |
 | `arquitectura_tecnica.md` | Arquitectura sin conexión, almacenamiento, motor de cálculo y lienzo |
 | `priorizacion.md` | Priorización de funciones y MVP |
+| `AUDIT_REPORT.md` | Auditoría técnica actual (Misión 009): estado, seguridad, riesgos y recomendaciones |
+| `ONENOTE_ANALYSIS.md` | Síntesis de experiencia de usuario para un cuaderno científico privado y ligero, con Obsidian (Misión 009) |
 
 **Límite de esta investigación:** no se instalaron ni se probaron las apps. Antes de diseñar cada pantalla, conviene probarlas manualmente en una tablet.

@@ -106,3 +106,26 @@ Ver `product_research/arquitectura_tecnica.md §5`.
 - [x] Pruebas en `backend/tests/test_diagrams.py` y `app/test/features/plot/diagram_spec_test.dart`.
 - [x] `pytest` en Fedora (41 pruebas), CI en verde y superficie revisada en la tablet.
 
+## Misión 009 — Auditoría y análisis de experiencia ✅ (2026-11-05)
+- [x] `product_research/AUDIT_REPORT.md`: auditoría actual, seguridad, riesgos y recomendaciones.
+- [x] `product_research/ONENOTE_ANALYSIS.md`: síntesis de OneNote, MyScript (Nebo), Goodnotes, Flexcil y Obsidian para un cuaderno científico privado y ligero.
+
+## Misión 010 — Firma estable del APK ◐ (código listo; falta la clave)
+- [x] `build.gradle.kts` firma con `android/key.properties` si existe; si no, debug.
+- [x] `ci.yml` y `release.yml` crean la clave desde los secretos `ANDROID_*`, muestran la huella y la borran al terminar.
+- [ ] **Dueño:** generar la clave, guardar copias y subir los secretos (`SIGNING.md` §0).
+- [ ] **Dueño:** última desinstalación e instalación del primer APK con la clave estable.
+
+## Misión 011 — Conexión cómoda ◐ (código listo; falta instalar en Fedora)
+- [x] `python -m app.pair`: dirección LAN y token con QR; `--rotar` para cambiar el token.
+- [x] `tool/install_service.sh`: backend como servicio de usuario de systemd.
+- [x] `docs/CONEXION.md`: guía de conexión, IP fija y problemas frecuentes.
+- [ ] **Dueño:** `pip install -e ".[dev]"`, instalar el servicio y reservar la IP en el router.
+
+## Misión 012 — Más figuras científicas ✅ (código y pruebas; falta verlas en la tablet)
+- [x] `contour`: curvas de nivel rellenas o en líneas.
+- [x] `vector_field`: flechas o líneas de campo, con divergencia y rotacional.
+- [x] `curve3d`: curvas paramétricas en el espacio.
+- [x] Bloques ` ```diagram ` y plantillas en el editor; pruebas de backend y de Dart.
+- [ ] **Dueño:** probarlas en la tablet (requiere el APK de esta rama).
+

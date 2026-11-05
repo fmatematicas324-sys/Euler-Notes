@@ -136,6 +136,18 @@ def math_label(expr: sp.Expr, prefix: str = "") -> str:
         return f"{prefix}{expr}"
 
 
+def mathtext_or(label: str, fallback: str) -> str:
+    """`label` si matplotlib puede interpretar su mathtext; si no, `fallback`.
+    Admite varias líneas: cada una se comprueba por separado."""
+    try:
+        for line in label.split("\n"):
+            if "$" in line:
+                _MATHTEXT.parse(line)
+        return label
+    except ValueError:
+        return fallback
+
+
 def new_axes(theme: str, width: int, height: int, scale: float) -> tuple[Figure, Axes]:
     fig = Figure(figsize=(width / 100, height / 100), dpi=100 * scale)
     FigureCanvasAgg(fig)

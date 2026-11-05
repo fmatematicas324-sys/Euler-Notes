@@ -3,6 +3,8 @@
 > Actualizado: 2026-11-05 (Misión 002). Fuente: auditoría de la Misión 001 y revisión de esta misión.
 > Marcas: **[H]** hecho comprobado · **[Hip]** hipótesis no verificada · **[P]** propuesta.
 
+> **Actualización 2026-11-05 (Misiones 008–012):** foto actual en [`product_research/AUDIT_REPORT.md`](product_research/AUDIT_REPORT.md) y resumen del trabajo en [`INFORME_MISIONES_008_012.md`](INFORME_MISIONES_008_012.md).
+
 ## 1. Resumen
 - **[H]** Versión de la app: `0.4.0+4` (`app/pubspec.yaml`). APK publicado como pre-release `v0.4.0` en GitHub (78 MB, firma debug de CI).
 - **[H]** Arquitectura actual: cliente Flutter **sin almacenamiento propio** + backend FastAPI/SQLite/SymPy en un PC. Sin backend la app no puede abrir ni guardar notas.

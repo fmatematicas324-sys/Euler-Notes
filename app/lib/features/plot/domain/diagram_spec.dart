@@ -45,12 +45,35 @@ import 'plot_spec.dart';
 /// curvas: no           ← (opcional) sin curvas de nivel en la base
 /// ```
 ///
+/// ```diagram
+/// tipo: curvas de nivel ← f(x, y) = c en el plano
+/// f: x^2 - y^2
+/// niveles: 12          ← (opcional) entre 3 y 40
+/// relleno: no          ← (opcional) solo líneas
+/// ```
+///
+/// ```diagram
+/// tipo: campo vectorial ← F = (P, Q), con su divergencia y rotacional
+/// P: -y
+/// Q: x
+/// modo: lineas         ← (opcional) líneas de campo en vez de flechas
+/// ```
+///
+/// ```diagram
+/// tipo: curva 3d       ← r(t) = (x(t), y(t), z(t))
+/// x: cos(t)
+/// y: sin(t)
+/// z: t/5
+/// t: 0, 4pi            ← (opcional) rango del parámetro; var: s para otro
+/// ```
+///
 /// Los decimales se escriben con punto (`9.8`); la coma separa valores.
 @immutable
 class DiagramSpec implements FigureSpec {
   const DiagramSpec._(this.kind, this.params, this.description);
 
-  /// `function`, `forces`, `projectile`, `graph` o `surface` (valor de la API).
+  /// `function`, `forces`, `projectile`, `graph`, `surface`, `contour`,
+  /// `vector_field` o `curve3d` (valor de la API).
   final String kind;
   final Map<String, Object> params;
 
@@ -105,6 +128,17 @@ class DiagramSpec implements FigureSpec {
     'superficie': 'surface',
     'surface': 'surface',
     '3d': 'surface',
+    'curvas de nivel': 'contour',
+    'curvas nivel': 'contour',
+    'contorno': 'contour',
+    'contour': 'contour',
+    'campo': 'vector_field',
+    'campo vectorial': 'vector_field',
+    'vector_field': 'vector_field',
+    'curva': 'curve3d',
+    'curva 3d': 'curve3d',
+    'curva parametrica': 'curve3d',
+    'curve3d': 'curve3d',
   };
 
   /// Plantillas para insertar desde el editor (título → bloque completo).
@@ -117,6 +151,12 @@ class DiagramSpec implements FigureSpec {
         '```diagram\ntipo: grafo\nA - B: 4\nB - C: 2\nC - A: 5\nC - D: 1\n```',
     'Superficie 3D':
         '```diagram\ntipo: superficie\nf: x^2 + y^2\nx: -3, 3\ny: -3, 3\n```',
+    'Curvas de nivel':
+        '```diagram\ntipo: curvas de nivel\nf: x^2 - y^2\nx: -3, 3\ny: -3, 3\n```',
+    'Campo vectorial':
+        '```diagram\ntipo: campo vectorial\nP: -y\nQ: x\nx: -3, 3\ny: -3, 3\n```',
+    'Curva 3D (hélice)':
+        '```diagram\ntipo: curva 3d\nx: cos(t)\ny: sin(t)\nz: t/5\nt: 0, 4pi\n```',
   };
 
   /// Bloque `tipo: funcion` que representa una operación de `/compute`.
@@ -159,8 +199,8 @@ class DiagramSpec implements FigureSpec {
     }
     if (kindText == null) {
       throw const FormatException(
-        'Indica el tipo: «tipo: funcion», «fuerzas», «proyectil», '
-        '«grafo» o «superficie»',
+        'Indica el tipo: «tipo: funcion», «fuerzas», «proyectil», «grafo», '
+        '«superficie», «curvas de nivel», «campo vectorial» o «curva 3d»',
       );
     }
     return switch (_kinds[_normalize(kindText)]) {
@@ -169,9 +209,12 @@ class DiagramSpec implements FigureSpec {
       'projectile' => _projectile(body),
       'graph' => _graph(body),
       'surface' => _surface(body),
+      'contour' => _contour(body),
+      'vector_field' => _vectorField(body),
+      'curve3d' => _curve3d(body),
       _ => throw FormatException(
-        'Tipo desconocido: «$kindText» '
-        '(usa funcion, fuerzas, proyectil, grafo o superficie)',
+        'Tipo desconocido: «$kindText» (usa funcion, fuerzas, proyectil, '
+        'grafo, superficie, curvas de nivel, campo vectorial o curva 3d)',
       ),
     };
   }
@@ -263,13 +306,17 @@ class DiagramSpec implements FigureSpec {
     }, 'Diagrama de $expr');
   }
 
-  static DiagramSpec _surface(List<String> body) {
-    final settings = _settings(body);
-    final expr =
-        settings.remove('f') ?? settings.remove('z') ?? settings.remove('expr');
-    if (expr == null || expr.isEmpty) {
-      throw const FormatException('Falta la función: «f: x^2 + y^2»');
-    }
+  /// `no`, `false` o `0` desactivan una opción; cualquier otro valor la activa.
+  static bool _enabled(String? text, {bool fallback = true}) => text == null
+      ? fallback
+      : !['no', 'false', '0'].contains(_normalize(text));
+
+  /// Variables (`vars: u, v`) y rangos (`u: -1, 1`) de una región del plano.
+  /// [reserved] son claves que ya usa el tipo y no pueden ser variables.
+  static Map<String, Object> _planeRegion(
+    Map<String, String> settings, {
+    Set<String> reserved = const {},
+  }) {
     var (varX, varY) = ('x', 'y');
     final varsText = settings.remove('vars');
     if (varsText != null) {
@@ -283,6 +330,9 @@ class DiagramSpec implements FigureSpec {
       if (!_variableName.hasMatch(name)) {
         throw FormatException('Variable no válida: $name');
       }
+      if (reserved.contains(name.toLowerCase())) {
+        throw FormatException('La variable no puede llamarse «$name»');
+      }
     }
     if (varX == varY) {
       throw const FormatException('Las dos variables deben ser distintas');
@@ -295,21 +345,117 @@ class DiagramSpec implements FigureSpec {
     final (yMin, yMax) = yRange == null
         ? (-5.0, 5.0)
         : PlotSpec.parseRange(varY, yRange);
-    final contoursText = settings.remove('curvas');
-    final contours =
-        contoursText == null ||
-        !['no', 'false', '0'].contains(_normalize(contoursText));
-    _rejectUnknown(settings);
-    return DiagramSpec._('surface', {
-      'expr': expr,
+    return {
       'var_x': varX,
       'var_y': varY,
       'x_min': xMin,
       'x_max': xMax,
       'y_min': yMin,
       'y_max': yMax,
+    };
+  }
+
+  /// Función f(x, y) de los tipos `superficie` y `curvas de nivel`.
+  static String _planeFunction(Map<String, String> settings) {
+    final expr =
+        settings.remove('f') ?? settings.remove('z') ?? settings.remove('expr');
+    if (expr == null || expr.isEmpty) {
+      throw const FormatException('Falta la función: «f: x^2 + y^2»');
+    }
+    return expr;
+  }
+
+  static DiagramSpec _surface(List<String> body) {
+    final settings = _settings(body);
+    final expr = _planeFunction(settings);
+    final region = _planeRegion(settings, reserved: {'f', 'z'});
+    final contours = _enabled(settings.remove('curvas'));
+    _rejectUnknown(settings);
+    return DiagramSpec._('surface', {
+      'expr': expr,
+      ...region,
       'contours': contours,
     }, 'Superficie z = $expr');
+  }
+
+  static DiagramSpec _contour(List<String> body) {
+    final settings = _settings(body);
+    final expr = _planeFunction(settings);
+    final region = _planeRegion(settings, reserved: {'f', 'z'});
+    final levelsText = settings.remove('niveles');
+    final levels = levelsText == null ? 12 : int.tryParse(levelsText.trim());
+    if (levels == null || levels < 3 || levels > 40) {
+      throw const FormatException('Niveles: un número entero entre 3 y 40');
+    }
+    final filled = _enabled(settings.remove('relleno'));
+    _rejectUnknown(settings);
+    return DiagramSpec._('contour', {
+      'expr': expr,
+      ...region,
+      'levels': levels,
+      'filled': filled,
+    }, 'Curvas de nivel de $expr');
+  }
+
+  static DiagramSpec _vectorField(List<String> body) {
+    final settings = _settings(body);
+    final p = settings.remove('p') ?? settings.remove('fx');
+    final q = settings.remove('q') ?? settings.remove('fy');
+    if (p == null || q == null || p.isEmpty || q.isEmpty) {
+      throw const FormatException(
+        'Indica las dos componentes: «P: -y» y «Q: x»',
+      );
+    }
+    final region = _planeRegion(settings, reserved: {'p', 'q', 'fx', 'fy'});
+    final modeText = _normalize(settings.remove('modo') ?? 'flechas');
+    final mode = switch (modeText) {
+      'flechas' || 'arrows' => 'arrows',
+      'lineas' || 'lineas de campo' || 'streamlines' => 'streamlines',
+      _ => throw FormatException(
+        'Modo desconocido: «$modeText» (flechas o lineas)',
+      ),
+    };
+    _rejectUnknown(settings);
+    return DiagramSpec._('vector_field', {
+      'p': p,
+      'q': q,
+      ...region,
+      'mode': mode,
+    }, 'Campo vectorial F = ($p, $q)');
+  }
+
+  static DiagramSpec _curve3d(List<String> body) {
+    final settings = _settings(body);
+    final x = settings.remove('x');
+    final y = settings.remove('y');
+    final z = settings.remove('z');
+    if (x == null || y == null || z == null) {
+      throw const FormatException(
+        'Indica las tres componentes: «x: cos(t)», «y: sin(t)» y «z: t»',
+      );
+    }
+    final variable = settings.remove('var') ?? 't';
+    if (!_variableName.hasMatch(variable)) {
+      throw FormatException('Variable no válida: $variable');
+    }
+    if (const {'x', 'y', 'z'}.contains(variable.toLowerCase())) {
+      throw const FormatException(
+        'El parámetro no puede llamarse x, y ni z (usa t o s)',
+      );
+    }
+    final range = settings.remove(variable.toLowerCase());
+    final (tMin, tMax) = range == null
+        ? (0.0, 10.0)
+        : PlotSpec.parseRange(variable, range);
+    _rejectUnknown(settings);
+    return DiagramSpec._('curve3d', {
+      'x': x,
+      'y': y,
+      'z': z,
+      'var': variable,
+      't_min': tMin,
+      't_max': tMax,
+    }, 'Curva r($variable) = ($x, $y, $z)');
   }
 
   static DiagramSpec _forces(List<String> body) {

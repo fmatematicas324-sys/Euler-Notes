@@ -1,6 +1,7 @@
 # Integración continua: pruebas del backend y de la app, y APK de comprobación.
-# No publica releases ni usa secretos. El APK se firma con la clave debug
-# temporal del runner y solo sirve para pruebas (ver docs/SIGNING.md).
+# No publica releases. Si existen los secretos ANDROID_*, el APK se firma con la
+# clave estable de Euler Notes y se instala encima de la versión anterior; si
+# no, con una clave debug temporal (ver docs/SIGNING.md, ADR 15).
 name: CI
 
 on:
@@ -101,8 +102,39 @@ jobs:
 
       - run: flutter pub get
 
+      - name: Clave de firma (secretos)
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::warning::Sin secretos de firma: el APK se firma con una clave debug temporal y no se podrá instalar encima de otra compilación (docs/SIGNING.md)."
+            exit 0
+          fi
+          umask 077
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/euler-notes-upload.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/euler-notes-upload.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/key.properties
+
       - name: Compilar APK
         run: flutter build apk --release
+
+      - name: Huella del certificado del APK
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          if [ -n "$APKSIGNER" ]; then
+            "$APKSIGNER" verify --print-certs build/app/outputs/flutter-apk/app-release.apk | grep -i "SHA-256" || true
+          fi
+
+      - name: Borrar la clave del runner
+        if: always()
+        run: rm -f android/key.properties "$RUNNER_TEMP/euler-notes-upload.jks"
 
       - uses: actions/upload-artifact@v4
         with:

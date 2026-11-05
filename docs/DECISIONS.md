@@ -40,8 +40,10 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - La tinta se guarda como trazos vectoriales en coordenadas de página.
 - Las notas Markdown actuales se conservan como objeto "bloque de texto" (no se elimina ninguna función).
 
-## ADR 15 — Firma propia del APK en los secretos de CI · **Propuesta**
-- **[P]** El dueño genera la clave de firma fuera de CI y la guarda en los secretos de GitHub. Las compilaciones de PR o forks siguen usando la clave debug.
+## ADR 15 — Firma propia del APK en los secretos de CI · **Aceptada** (Misión 010)
+- El dueño genera la clave de firma fuera de CI y la guarda en los secretos de GitHub. Las compilaciones de forks siguen usando la clave debug.
+- La usan `ci.yml` **y** `release.yml`: el APK de comprobación es el que se instala en la tablet para probar, y con otra clave obligaría a desinstalar en cada prueba (pasó en la Misión 008).
+- Gradle firma con `android/key.properties` si existe; si no, con la clave debug.
 - Hay que hacerlo **antes** de la Etapa 2: cambiar de clave obliga a desinstalar una vez, y después de la migración eso borraría los datos locales.
 
 ## ADR 16 — Versión única del producto · **Aceptada** (Misión 003)
@@ -60,6 +62,17 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - Se dibujan con matplotlib (`mplot3d`) como un tipo más de `/diagram`; el cliente solo muestra el PNG, como el resto de figuras. Sin dependencias nuevas.
 - Las caras se construyen a mano (`Poly3DCollection`) para descartar las que tienen vértices sin valor real, en vez de depender del trato de los NaN en `plot_surface`, que varía entre versiones.
 - Imagen estática: no se puede girar. Una vista interactiva exigiría render en el cliente y se valorará con la arquitectura sin conexión (ADR 10–14).
+
+## ADR 19 — Emparejamiento: el token se muestra solo a petición · **Aceptada** (Misión 011)
+- `python -m app.pair` muestra la dirección LAN y el token (con QR) cuando el dueño lo pide en la terminal.
+- El servidor **no** escribe el token en sus registros: con systemd quedaría guardado en el journal.
+- El QR contiene solo el token; la cámara de la tablet lo copia sin que la app necesite permiso de cámara ni dependencias nuevas.
+- El backend se instala como servicio **de usuario** de systemd (sin sudo).
+
+## ADR 20 — Más figuras en el mismo motor · **Aceptada** (Misión 012)
+- Curvas de nivel, campos vectoriales y curvas 3D son tipos de `/diagram` dibujados con matplotlib, como el resto (ADR 18). Sin dependencias nuevas.
+- El campo vectorial muestra ∇·F y (∇×F)_z calculados con SymPy: la figura enseña, no solo dibuja.
+- Mismo recorte por percentiles en todas las figuras para que los polos (1/r, 1/r²) no aplasten la imagen.
 
 ## Decisiones aplazadas
 - Sincronización (PowerSync, servidor propio o CRDT): después del MVP sin conexión.
