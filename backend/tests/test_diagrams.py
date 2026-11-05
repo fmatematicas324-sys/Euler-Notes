@@ -41,8 +41,14 @@ def _diagram(client: TestClient, **payload):
         },
         {"kind": "surface", "expr": "x^2 + y^2"},
         {"kind": "surface", "expr": "sin(x)*cos(y)", "theme": "dark", "contours": False},
-        {"kind": "surface", "expr": "sqrt(1 - x^2 - y^2)", "x_min": -1, "x_max": 1,
-         "y_min": -1, "y_max": 1},  # dominio parcial: caras sin valor real descartadas
+        {
+            "kind": "surface",
+            "expr": "sqrt(1 - x^2 - y^2)",
+            "x_min": -1,
+            "x_max": 1,
+            "y_min": -1,
+            "y_max": 1,
+        },  # dominio parcial: caras sin valor real descartadas
         {"kind": "surface", "expr": "1/(x^2 + y^2)"},  # polo en el origen
         {"kind": "surface", "expr": "3"},  # plano constante
         {"kind": "surface", "expr": "u*v", "var_x": "u", "var_y": "v"},
