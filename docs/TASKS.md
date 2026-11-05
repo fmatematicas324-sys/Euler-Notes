@@ -138,11 +138,11 @@ Ver `product_research/arquitectura_tecnica.md §5`.
 - [x] Pruebas: cierre de la app sin conexión, recuperar, descartar, conflicto y reintento.
 - [ ] **Dueño:** probar en la tablet: apagar el servidor (`systemctl --user stop euler-notes`), escribir, cerrar la app, encender el servidor y volver a abrir la nota.
 
-## Etapa 2 — Misión 014: prototipo de almacenamiento local 🚧 (2026-11-05)
+## Etapa 2 — Misión 014: prototipo de almacenamiento local ✅ (2026-11-05)
 - [x] Drift + `sqlite3` 3.x con generación de código en CI (ADR 10).
 - [x] Esquema de prototipo `notebooks`/`pages`/`strokes`, UUID v7 (ADR 12), WAL.
 - [x] Banco de pruebas y pantalla «Laboratorio» (base aparte que se vacía).
 - [x] CI en verde: análisis, pruebas (FTS5 disponible) y APK.
 - [x] Laboratorio en la tablet: todos los criterios cumplidos (autoguardado 0,33 ms, trazo 0,78 ms, abrir cuaderno 2 ms, FTS5 ✔).
-- [ ] Decidir la ADR 10 con los datos de la tablet.
+- [x] ADR 10 aceptada por el dueño con los datos de la tablet.
 
