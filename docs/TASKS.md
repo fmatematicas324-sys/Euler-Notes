@@ -110,10 +110,10 @@ Ver `product_research/arquitectura_tecnica.md §5`.
 - [x] `product_research/AUDIT_REPORT.md`: auditoría actual, seguridad, riesgos y recomendaciones.
 - [x] `product_research/ONENOTE_ANALYSIS.md`: síntesis de OneNote, MyScript (Nebo), Goodnotes, Flexcil y Obsidian para un cuaderno científico privado y ligero.
 
-## Misión 010 — Firma estable del APK ◐ (código listo; falta la clave)
+## Misión 010 — Firma estable del APK ✅ (clave activa el 2026-11-05)
 - [x] `build.gradle.kts` firma con `android/key.properties` si existe; si no, debug.
 - [x] `ci.yml` y `release.yml` crean la clave desde los secretos `ANDROID_*`, muestran la huella y la borran al terminar.
-- [ ] **Dueño:** generar la clave, guardar copias y subir los secretos (`SIGNING.md` §0).
+- [x] **Dueño:** generar la clave y subir los secretos; huella comprobada en CI.
 - [ ] **Dueño:** última desinstalación e instalación del primer APK con la clave estable.
 
 ## Misión 011 — Conexión cómoda ◐ (código listo; falta instalar en Fedora)
