@@ -35,6 +35,13 @@ O desde la web: repositorio → *Settings* → *Secrets and variables* → *Acti
 
 ## 1. Estado actual
 
+> **Clave estable activa desde el 2026-11-05 (Misión 010) [H].** Alias `upload`, RSA 4096, titular `CN=jose sanchez`.
+> Huella SHA-256 (pública): `65:0F:F5:8D:3B:4D:AB:44:C6:EC:19:73:A8:42:34:61:7D:91:EF:31:C4:05:78:49:71:95:53:BF:60:24:0B:18`
+> Comprobada en el APK de CI del run `42090659252` (`apksigner`: `650ff58d…240b18`). Si un APK muestra otra huella, **no lo instales**.
+> Nota: con Java en español, `keytool -list -v` falla al imprimir el certificado; usa `keytool -J-Duser.language=en …`.
+>
+> La tabla siguiente describe la clave debug de la v0.4.0 (historial).
+
 | Aspecto | Valor | Cómo se comprobó |
 |---|---|---|
 | Configuración de la build `release` | `signingConfig = signingConfigs.getByName("debug")` | **[H]** `app/android/app/build.gradle.kts`, línea 36 |
