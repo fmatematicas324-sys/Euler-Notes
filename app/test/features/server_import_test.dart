@@ -138,9 +138,14 @@ void main() {
     });
 
     test('el servidor no recibe ninguna escritura', () async {
-      final before = jsonEncode(backend.notes);
+      String snapshot() => jsonEncode([
+        backend.notebooks.values.toList(),
+        backend.notes.values.toList(),
+        backend.drawings.values.toList(),
+      ]);
+      final before = snapshot();
       await importer.run();
-      expect(jsonEncode(backend.notes), before);
+      expect(snapshot(), before);
     });
   });
 }
