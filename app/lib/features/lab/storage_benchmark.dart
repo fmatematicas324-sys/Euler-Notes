@@ -1,5 +1,5 @@
+import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:drift/drift.dart';
 
@@ -101,10 +101,10 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
   );
 
   // 2. Un curso completo de golpe (como una importación desde el servidor).
-  onProgress?.call('Creando cuadernos y páginas');
+  onProgress?.call('Creando cuadernos y notas');
   final now = DateTime.now().millisecondsSinceEpoch;
   final body = _sampleMarkdown(rng);
-  final pageIds = <String>[];
+  final noteIds = <String>[];
   final notebookIds = <String>[];
   watch
     ..reset()
@@ -124,19 +124,18 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
             ),
           );
       for (var p = 0; p < size.pagesPerNotebook; p++) {
-        final pageId = uuidV7();
-        pageIds.add(pageId);
+        final noteId = uuidV7();
+        noteIds.add(noteId);
         await db
-            .into(db.pages)
+            .into(db.notes)
             .insert(
-              PagesCompanion.insert(
-                id: pageId,
+              NotesCompanion.insert(
+                id: noteId,
                 notebookId: notebookId,
-                title: 'Página $p',
-                position: p,
-                body: Value(body),
+                title: 'Nota $p',
+                content: Value(body),
                 createdAt: now,
-                updatedAt: now,
+                updatedAt: now + p,
               ),
             );
       }
@@ -145,26 +144,26 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
   watch.stop();
   results.add(
     BenchmarkResult(
-      'Crear ${pageIds.length} páginas (${size.notebooks} cuadernos)',
+      'Crear ${noteIds.length} notas (${size.notebooks} cuadernos)',
       '${fmt(ms())} ms',
       detail: '${(body.length / 1024).toStringAsFixed(1)} KB de texto c/u',
     ),
   );
 
-  // 3. Abrir un cuaderno: listar sus páginas.
+  // 3. Abrir un cuaderno: listar sus notas, la más reciente primero.
   onProgress?.call('Leyendo un cuaderno');
   watch
     ..reset()
     ..start();
   final listed =
-      await (db.select(db.pages)
-            ..where((p) => p.notebookId.equals(notebookIds.first))
-            ..orderBy([(p) => OrderingTerm.asc(p.position)]))
+      await (db.select(db.notes)
+            ..where((n) => n.notebookId.equals(notebookIds.first))
+            ..orderBy([(n) => OrderingTerm.desc(n.updatedAt)]))
           .get();
   watch.stop();
   results.add(
     BenchmarkResult(
-      'Abrir un cuaderno (${listed.length} páginas)',
+      'Abrir un cuaderno (${listed.length} notas)',
       '${fmt(ms())} ms',
       ok: ms() <= maxPageReadMs,
       detail: 'máx. ${maxPageReadMs.toStringAsFixed(0)} ms',
@@ -173,15 +172,15 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
 
   // 4. Autoguardado: cada guardado es su propia transacción, como en el editor.
   onProgress?.call('Simulando el autoguardado');
-  final target = pageIds[pageIds.length ~/ 2];
+  final target = noteIds[noteIds.length ~/ 2];
   var worst = 0.0;
   watch.reset();
   for (var i = 0; i < size.autosaves; i++) {
     final single = Stopwatch()..start();
     watch.start();
-    await (db.update(db.pages)..where((p) => p.id.equals(target))).write(
-      PagesCompanion(
-        body: Value('$body\n\nEdición $i'),
+    await (db.update(db.notes)..where((n) => n.id.equals(target))).write(
+      NotesCompanion(
+        content: Value('$body\n\nEdición $i'),
         updatedAt: Value(now + i),
       ),
     );
@@ -192,55 +191,59 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
   final autosave = ms() / size.autosaves;
   results.add(
     BenchmarkResult(
-      'Autoguardado de una página',
+      'Autoguardado de una nota',
       '${fmt(autosave)} ms de media',
       ok: autosave <= maxAutosaveMs,
       detail: 'peor ${fmt(worst)} ms; máx. ${fmt(maxAutosaveMs)} ms',
     ),
   );
 
-  // 5. Tinta: muchos trazos de golpe y luego uno a uno (al levantar el lápiz).
+  // 5. Tinta: un dibujo que crece trazo a trazo; como hoy, cada guardado
+  // escribe la lista completa de trazos en JSON.
   onProgress?.call('Guardando tinta');
-  final inkPage = pageIds.first;
-  StrokesCompanion stroke() {
-    final points = _randomStroke(rng, size.pointsPerStroke);
-    return StrokesCompanion.insert(
-      id: uuidV7(),
-      pageId: inkPage,
-      tool: 'pen',
-      color: 0xFF1C64D9,
-      width: 2.5,
-      minX: 0,
-      minY: 0,
-      maxX: 595,
-      maxY: 842,
-      points: points,
-      createdAt: now,
-    );
-  }
-
+  final drawingId = uuidV7();
+  await db
+      .into(db.drawings)
+      .insert(
+        DrawingsCompanion.insert(
+          id: drawingId,
+          noteId: noteIds.first,
+          width: 595,
+          height: 842,
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+  final strokes = <Map<String, Object>>[
+    for (var i = 0; i < size.strokes; i++)
+      _randomStroke(rng, size.pointsPerStroke),
+  ];
   watch
     ..reset()
     ..start();
-  await db.batch((batch) {
-    batch.insertAll(db.strokes, [
-      for (var i = 0; i < size.strokes; i++) stroke(),
-    ]);
-  });
+  await (db.update(db.drawings)..where((d) => d.id.equals(drawingId))).write(
+    DrawingsCompanion(strokes: Value(jsonEncode(strokes))),
+  );
   watch.stop();
-  final inkBytes = size.strokes * size.pointsPerStroke * 16;
+  final inkKb = utf8.encode(jsonEncode(strokes)).length / 1024;
   results.add(
     BenchmarkResult(
-      'Guardar ${size.strokes} trazos de golpe',
+      'Guardar un dibujo de ${size.strokes} trazos',
       '${fmt(ms())} ms',
-      detail: '${(inkBytes / 1024).toStringAsFixed(0)} KB de puntos',
+      detail: '${inkKb.toStringAsFixed(0)} KB de JSON',
     ),
   );
 
   watch.reset();
   for (var i = 0; i < size.liveStrokes; i++) {
+    strokes.add(_randomStroke(rng, size.pointsPerStroke));
     watch.start();
-    await db.into(db.strokes).insert(stroke());
+    await (db.update(db.drawings)..where((d) => d.id.equals(drawingId))).write(
+      DrawingsCompanion(
+        strokes: Value(jsonEncode(strokes)),
+        updatedAt: Value(now + i),
+      ),
+    );
     watch.stop();
   }
   final perStroke = ms() / size.liveStrokes;
@@ -249,27 +252,24 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
       'Guardar un trazo al levantar el lápiz',
       '${fmt(perStroke)} ms de media',
       ok: perStroke <= maxStrokeSaveMs,
-      detail: 'máx. ${fmt(maxStrokeSaveMs)} ms',
+      detail: 'reescribe el dibujo entero; máx. ${fmt(maxStrokeSaveMs)} ms',
     ),
   );
 
   watch
     ..reset()
     ..start();
-  final strokes = await (db.select(
-    db.strokes,
-  )..where((s) => s.pageId.equals(inkPage))).get();
-  final decoded = strokes.fold<int>(
-    0,
-    (sum, s) => sum + s.points.lengthInBytes ~/ 16,
-  );
+  final drawing = await (db.select(
+    db.drawings,
+  )..where((d) => d.id.equals(drawingId))).getSingle();
+  final decoded = (jsonDecode(drawing.strokes) as List<dynamic>).length;
   watch.stop();
   results.add(
     BenchmarkResult(
-      'Cargar la tinta de una página',
+      'Cargar un dibujo',
       '${fmt(ms())} ms',
       ok: ms() <= maxPageReadMs,
-      detail: '${strokes.length} trazos, $decoded puntos',
+      detail: '$decoded trazos de ${size.pointsPerStroke} puntos',
     ),
   );
 
@@ -280,7 +280,7 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
       'CREATE VIRTUAL TABLE temp.lab_search USING fts5(title, body)',
     );
     await db.customStatement(
-      'INSERT INTO temp.lab_search SELECT title, body FROM pages',
+      'INSERT INTO temp.lab_search SELECT title, content FROM notes',
     );
     watch
       ..reset()
@@ -298,7 +298,7 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
         'Búsqueda de texto (FTS5)',
         '${fmt(ms())} ms',
         ok: true,
-        detail: '${hits.data['n']} páginas con «energía»',
+        detail: '${hits.data['n']} notas con «energía»',
       ),
     );
   } on Object catch (error) {
@@ -323,28 +323,28 @@ Future<List<BenchmarkResult>> runStorageBenchmark(
   );
   onProgress?.call('Limpiando');
   await db.transaction(() async {
-    await db.delete(db.strokes).go();
-    await db.delete(db.pages).go();
+    await db.delete(db.drawings).go();
+    await db.delete(db.notes).go();
     await db.delete(db.notebooks).go();
   });
   await db.customStatement('VACUUM');
   return results;
 }
 
-/// Puntos `Float32 [x, y, presión, t]` de un trazo con forma de garabato.
-Uint8List _randomStroke(Random rng, int points) {
-  final data = Float32List(points * 4);
+/// Trazo con forma de garabato en el JSON de `Stroke.toJson`.
+Map<String, Object> _randomStroke(Random rng, int points) {
   var x = rng.nextDouble() * 500, y = rng.nextDouble() * 800;
+  final flat = <double>[];
   for (var i = 0; i < points; i++) {
     x += rng.nextDouble() * 4 - 2;
     y += rng.nextDouble() * 4 - 2;
-    data
-      ..[i * 4] = x
-      ..[i * 4 + 1] = y
-      ..[i * 4 + 2] = 0.3 + rng.nextDouble() * 0.7
-      ..[i * 4 + 3] = i * 8;
+    flat.addAll([
+      double.parse(x.toStringAsFixed(1)),
+      double.parse(y.toStringAsFixed(1)),
+      double.parse((0.3 + rng.nextDouble() * 0.7).toStringAsFixed(2)),
+    ]);
   }
-  return data.buffer.asUint8List();
+  return {'tool': 'pen', 'color': '#1c64d9', 'width': 2.5, 'points': flat};
 }
 
 /// Apunte de ejemplo de unos 2 KB con fórmulas, como una nota real.

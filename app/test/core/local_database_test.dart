@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:euler_notes/core/local_db/local_database.dart';
 import 'package:euler_notes/core/local_db/uuid_v7.dart';
@@ -39,13 +39,15 @@ void main() {
     setUp(() => db = LocalDatabase(NativeDatabase.memory()));
     tearDown(() => db.close());
 
-    Future<String> addNotebook() async {
+    Future<String> addNotebook({String? source, int? sourceId}) async {
       final id = uuidV7();
       await db
           .into(db.notebooks)
           .insert(
             NotebooksCompanion.insert(
               id: id,
+              source: Value(source),
+              sourceId: Value(sourceId),
               title: 'Física',
               createdAt: 1,
               updatedAt: 1,
@@ -56,55 +58,60 @@ void main() {
 
     test('crea el esquema y activa las claves foráneas', () async {
       expect(await db.scalar('PRAGMA foreign_keys'), '1');
-      final page = PagesCompanion.insert(
+      final note = NotesCompanion.insert(
         id: uuidV7(),
         notebookId: 'no-existe',
         title: 'Huérfana',
-        position: 0,
         createdAt: 1,
         updatedAt: 1,
       );
-      await expectLater(db.into(db.pages).insert(page), throwsA(anything));
+      await expectLater(db.into(db.notes).insert(note), throwsA(anything));
     });
 
-    test('guarda y recupera la tinta como Float32', () async {
+    test('un mismo origen no se puede importar dos veces', () async {
+      await addNotebook(source: 'http://pc:8000', sourceId: 1);
+      await expectLater(
+        addNotebook(source: 'http://pc:8000', sourceId: 1),
+        throwsA(anything),
+      );
+      // Otro servidor, o una fila creada en la tablet (sin origen), sí.
+      await addNotebook(source: 'http://otro:8000', sourceId: 1);
+      await addNotebook();
+      await addNotebook();
+      expect(await db.select(db.notebooks).get(), hasLength(4));
+    });
+
+    test('guarda los trazos de un dibujo tal cual', () async {
       final notebookId = await addNotebook();
-      final pageId = uuidV7();
+      final noteId = uuidV7();
       await db
-          .into(db.pages)
+          .into(db.notes)
           .insert(
-            PagesCompanion.insert(
-              id: pageId,
+            NotesCompanion.insert(
+              id: noteId,
               notebookId: notebookId,
               title: 'Tinta',
-              position: 0,
               createdAt: 1,
               updatedAt: 1,
             ),
           );
-      final points = Float32List.fromList([10, 20, 0.5, 0, 11, 21, 0.6, 8]);
+      const strokes = '[{"tool":"pen","color":"#000000","width":2.0,'
+          '"points":[1.0,2.0,0.5]}]';
       await db
-          .into(db.strokes)
+          .into(db.drawings)
           .insert(
-            StrokesCompanion.insert(
+            DrawingsCompanion.insert(
               id: uuidV7(),
-              pageId: pageId,
-              tool: 'pen',
-              color: 0xFF000000,
-              width: 2,
-              minX: 10,
-              minY: 20,
-              maxX: 11,
-              maxY: 21,
-              points: points.buffer.asUint8List(),
+              noteId: noteId,
+              width: 800,
+              height: 600,
+              strokes: const Value(strokes),
               createdAt: 1,
+              updatedAt: 1,
             ),
           );
-      final stored = await db.select(db.strokes).getSingle();
-      final restored = Float32List.view(
-        Uint8List.fromList(stored.points).buffer,
-      );
-      expect(restored, points);
+      final stored = await db.select(db.drawings).getSingle();
+      expect(stored.strokes, strokes);
     });
 
     test('el banco de pruebas mide todo y deja la base vacía', () async {
@@ -125,8 +132,40 @@ void main() {
       );
       expect(steps, isNotEmpty);
       expect(await db.select(db.notebooks).get(), isEmpty);
-      expect(await db.select(db.pages).get(), isEmpty);
-      expect(await db.select(db.strokes).get(), isEmpty);
+      expect(await db.select(db.notes).get(), isEmpty);
+      expect(await db.select(db.drawings).get(), isEmpty);
     });
+  });
+
+  test('migra la base del laboratorio de la Misión 014 (versión 1)', () async {
+    // Esquema v1 tal como quedó en la tablet tras el laboratorio.
+    final old = LocalDatabase(
+      NativeDatabase.memory(
+        setup: (raw) {
+          raw
+            ..execute('CREATE TABLE notebooks (id TEXT PRIMARY KEY, title TEXT)')
+            ..execute('CREATE TABLE pages (id TEXT PRIMARY KEY)')
+            ..execute('CREATE TABLE strokes (id TEXT PRIMARY KEY)')
+            ..execute('PRAGMA user_version = 1');
+        },
+      ),
+    );
+    addTearDown(old.close);
+    expect(await old.scalar('PRAGMA user_version'), '2');
+    final tables = await old
+        .customSelect("SELECT name FROM sqlite_master WHERE type = 'table'")
+        .map((row) => row.read<String>('name'))
+        .get();
+    expect(tables, containsAll(['notebooks', 'notes', 'drawings']));
+    expect(tables, isNot(contains('pages')));
+    expect(tables, isNot(contains('strokes')));
+    await old.into(old.notebooks).insert(
+      NotebooksCompanion.insert(
+        id: uuidV7(),
+        title: 'Nueva',
+        createdAt: 1,
+        updatedAt: 1,
+      ),
+    );
   });
 }

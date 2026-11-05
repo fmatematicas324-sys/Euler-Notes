@@ -82,6 +82,13 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - `android_backup_rules_test.dart` comprueba que solo `server_settings.dart` y `note_drafts.dart` escriben en ese archivo.
 - Revisar en la Etapa 2: con notas locales, el almacenamiento principal sí deberá respaldarse (o exportarse).
 
+## ADR 22 — Etapa 2 con el modelo actual de notas · **Aceptada** (Misión 015)
+- Decisión del dueño: en la Etapa 2 la copia local guarda **cuadernos, notas Markdown y dibujos** como hoy. Las páginas con capas (ADR 14) se aplazan a la Etapa 3, cuando se rehaga el editor.
+- Los dibujos guardan sus trazos en el mismo JSON que la app (`Stroke.toJson`); el formato `Float32` del prototipo queda para la Etapa 3.
+- En la copia local, los bloques ` ```ink ` usan el UUID del dibujo local. El servidor no se modifica.
+- Los PDF se importarán en una misión posterior.
+- Limitación conocida: si algo se borra en el servidor después de importarlo, la copia local lo conserva hasta que exista la sincronización.
+
 ## Decisiones aplazadas
 - Sincronización (PowerSync, servidor propio o CRDT): después del MVP sin conexión.
 - Reconocimiento de escritura a mano y de fórmulas (ML Kit Digital Ink, MyScript SDK u otro modelo): requiere estudiar licencias y funcionamiento sin conexión.

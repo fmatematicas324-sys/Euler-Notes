@@ -146,3 +146,12 @@ Ver `product_research/arquitectura_tecnica.md §5`.
 - [x] Laboratorio en la tablet: todos los criterios cumplidos (autoguardado 0,33 ms, trazo 0,78 ms, abrir cuaderno 2 ms, FTS5 ✔).
 - [x] ADR 10 aceptada por el dueño con los datos de la tablet.
 
+## Etapa 2 — Misión 015: copia local e importación 🚧 (2026-11-05)
+Decisiones del dueño: en la Etapa 2 las notas se guardan **igual que hoy** (Markdown + dibujos ` ```ink `), y los **PDF se importan después**.
+- [x] Esquema local v2: `notebooks`, `notes` y `drawings`, con UUID v7 y origen (`source`, `source_id`) único; migración desde la base del laboratorio (v1).
+- [x] Importador: solo lee del servidor, todo en una transacción, repetible sin duplicar, reescribe los ` ```ink ` a UUID locales y verifica releyendo.
+- [x] Botón «Importar desde el servidor» en el Laboratorio, con resumen y avisos.
+- [x] El laboratorio mide el esquema real (notas y dibujos en JSON).
+- [ ] **Dueño:** importar en la tablet y comprobar el resumen.
+- [ ] Siguiente (Misión 016): que la app lea y escriba en la copia local.
+
