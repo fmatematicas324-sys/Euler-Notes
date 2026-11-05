@@ -98,11 +98,11 @@ Ver `product_research/`. Falta tu validación de la visión y de la priorizació
 ## Etapa 3 — Lienzo científico ⏳ (no autorizada)
 Ver `product_research/arquitectura_tecnica.md §5`.
 
-## Misión 008 — Superficies 3D 🚧 (aprobada el 2026-11-05)
+## Misión 008 — Superficies 3D ✅ (aprobada y probada el 2026-11-05)
 **[H]** El aviso «solo puede depender de x (contiene y)» lo genera el backend (`diagrams._parse_in` y `plotting._prepare`), no el cliente Flutter.
 - [x] Backend: tipo `surface` en `POST /diagram` (malla 60 × 60, caras sin valor real descartadas, recorte por percentiles, curvas de nivel opcionales).
 - [x] Backend: el diagrama `function` sugiere «tipo: superficie» si la expresión tiene una segunda variable.
 - [x] Cliente: bloque ` ```diagram ` con `tipo: superficie` (`f`, rangos, `vars`, `curvas`) y plantilla «Superficie 3D».
 - [x] Pruebas en `backend/tests/test_diagrams.py` y `app/test/features/plot/diagram_spec_test.dart`.
-- [ ] Ejecutar `pytest`, `ruff` y `flutter test` en Fedora/CI y revisar la imagen en la tablet.
+- [x] `pytest` en Fedora (41 pruebas), CI en verde y superficie revisada en la tablet.
 
