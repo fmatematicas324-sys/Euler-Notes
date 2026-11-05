@@ -16,6 +16,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  versions:
+    name: Coherencia de versiones
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python3 tool/check_versions.py
+
   backend:
     name: Backend (Python ${{ matrix.python }})
     runs-on: ubuntu-latest
@@ -68,7 +78,7 @@ jobs:
 
   apk:
     name: APK de comprobación
-    needs: [backend, flutter]
+    needs: [versions, backend, flutter]
     # Cuando release.yml reutiliza este workflow, el APK lo compila release.yml.
     if: ${{ !startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest

@@ -3,6 +3,13 @@
 Formato basado en *Keep a Changelog*. Versionado semántico. Reconstruido a partir del historial de Git y del `DEVELOPMENT_LOG.md`.
 
 ## [Sin publicar]
+### Cambiado
+- CI separado de las releases: `ci.yml` (Ruff, pytest, Flutter y APK de comprobación con 7 días de retención) y `release.yml` (solo tags `vX.Y.Z`, como borrador).
+- Versión del backend sincronizada con la del producto (`0.4.0`), leída de `pyproject.toml`.
+- Variables de entorno con prefijo `EULER_` (se siguen aceptando las `CUADERNO_`).
+### Añadido
+- `tool/check_versions.py`: comprueba que `pubspec.yaml`, `pyproject.toml` y el tag coinciden.
+- `docs/SIGNING.md`: estado de la firma y procedimiento de respaldo.
 ### Documentación
 - Misión 001: auditoría técnica.
 - Misión 002: investigación de competencia (`docs/product_research/`), arquitectura offline objetivo, lienzo científico, plan de la Etapa 0, `PROJECT_STATUS`, `TASKS`, `DECISIONS` y este `CHANGELOG`.

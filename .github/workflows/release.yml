@@ -1,5 +1,6 @@
 # Release: solo al subir un tag v*. Crea un BORRADOR; publicarlo es manual.
-# La versión sale de app/pubspec.yaml (fuente única); el tag debe coincidir.
+# La versión sale de app/pubspec.yaml (fuente única); el tag debe coincidir
+# (tool/check_versions.py).
 name: Release
 
 on:
@@ -19,16 +20,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Comparar el tag con pubspec.yaml y pyproject.toml
+        run: python3 tool/check_versions.py --tag "${GITHUB_REF_NAME}"
+
       - id: read
-        name: Comparar el tag con pubspec.yaml
+        name: Leer la versión
         run: |
           VERSION=$(sed -n 's/^version: *\([^+ ]*\).*/\1/p' app/pubspec.yaml)
-          TAG="${GITHUB_REF_NAME}"
-          echo "pubspec: $VERSION · tag: $TAG"
-          if [ "v$VERSION" != "$TAG" ]; then
-            echo "::error::El tag $TAG no coincide con la versión v$VERSION de app/pubspec.yaml"
-            exit 1
-          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
   tests:

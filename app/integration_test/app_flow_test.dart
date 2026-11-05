@@ -1,6 +1,6 @@
 // Prueba de punta a punta contra el backend real (http://127.0.0.1:8000).
 //
-//   cd backend && CUADERNO_COMPUTE_TIMEOUT=15 \
+//   cd backend && EULER_COMPUTE_TIMEOUT=15 \
 //       .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
 //
 // (límite de cálculo amplio: la prueba verifica el flujo, no el rendimiento,
