@@ -104,9 +104,40 @@ jobs:
       - name: Compilar APK
         run: flutter build apk --release
 
+      # Solo lectura: deja constancia en el log de qué contiene el APK de prueba.
+      - name: Inspeccionar APK
+        working-directory: app/build/app/outputs/flutter-apk
+        run: |
+          set -euo pipefail
+          APK=app-release.apk
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          echo "== Tamaño y SHA-256"
+          ls -l "$APK"
+          sha256sum "$APK" | tee "$APK.sha256"
+          echo "== Paquete, versión y SDK"
+          "$BT/aapt2" dump badging "$APK" | grep -E "^(package|sdkVersion|targetSdkVersion|application-label):"
+          echo "== Manifiesto: copias de seguridad"
+          "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" \
+            | grep -E "allowBackup|fullBackupContent|dataExtractionRules" || echo "(sin atributos de backup)"
+          echo "== Reglas de backup compiladas"
+          for res in backup_rules data_extraction_rules; do
+            path=$("$BT/aapt2" dump resources "$APK" | grep -A2 "xml/$res" | grep -oE "res/[^ ]+\.xml" | head -1)
+            echo "-- xml/$res -> $path"
+            "$BT/aapt2" dump xmltree --file "$path" "$APK"
+          done
+          echo "== Firma"
+          "$BT/apksigner" verify --print-certs "$APK"
+          echo "== Interfaz del token (cadenas en el código AOT)"
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            n=$(unzip -p "$APK" "lib/$abi/libapp.so" | strings | grep -c -E "Token de acceso|server-token|/auth/check" || true)
+            echo "$abi: $n coincidencias"
+          done
+
       - uses: actions/upload-artifact@v4
         with:
           name: euler-notes-apk-${{ github.sha }}
-          path: app/build/app/outputs/flutter-apk/app-release.apk
+          path: |
+            app/build/app/outputs/flutter-apk/app-release.apk
+            app/build/app/outputs/flutter-apk/app-release.apk.sha256
           retention-days: 7
           if-no-files-found: error
