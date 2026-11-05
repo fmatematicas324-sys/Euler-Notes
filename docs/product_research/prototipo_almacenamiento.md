@@ -45,9 +45,28 @@
 | APK | ✅ compila y se firma con la clave estable (`650ff58d…`) |
 | Tamaño del APK | **82,2 MB → 89,0 MB (+6,8 MB)**: bibliotecas nativas de SQLite para cada ABI. **[P]** Se puede reducir publicando APK por arquitectura (`--split-per-abi`), solo arm64 para la tablet |
 
-### Tablet Android (dispositivo real)
-_Pendiente: ejecutar el laboratorio y pegar aquí el informe._
+### Tablet Android 13 (dispositivo real del dueño, 2026-11-05) [H]
+APK de CI firmado con la clave estable, **instalado encima de la versión anterior sin desinstalar** (confirma también la Misión 010).
+
+| Medida | Resultado | Criterio | Margen |
+|---|---|---|---|
+| Duración total del laboratorio | 0,7 s | — | — |
+| Apertura y primera consulta | 21 ms | — | — |
+| Versión de SQLite | 3.53.4 | — | — |
+| Modo de diario | WAL ✔ | WAL | — |
+| Crear 1.000 páginas (20 cuadernos, 1,7 KB c/u) | 457 ms | — | Importar un curso entero tarda medio segundo |
+| Abrir un cuaderno (50 páginas) | 2,01 ms ✔ | ≤ 100 ms | ×50 |
+| Autoguardado de una página | 0,33 ms de media, peor 3,45 ms ✔ | ≤ 15 ms | ×45 (×4 en el peor caso) |
+| Guardar 300 trazos de golpe (469 KB) | 27 ms | — | — |
+| Guardar un trazo al levantar el lápiz | 0,78 ms de media ✔ | ≤ 15 ms | ×19 |
+| Cargar la tinta de una página (400 trazos, 40.000 puntos) | 9,31 ms ✔ | ≤ 100 ms | ×10 |
+| Búsqueda FTS5 en 1.000 páginas | 1,10 ms ✔ | disponible | — |
+| Tamaño de la base de datos | 2,9 MB | — | 1.000 páginas + 40.000 puntos de tinta |
 
 ## 5. Decisión
 
-_Pendiente de los resultados en la tablet._ Si se cumplen los criterios, la ADR 10 pasa a **Aceptada** y la siguiente misión diseña el esquema definitivo y la importación desde el servidor. Si no, se prueba el plan B (`sqlite3` directo).
+**[H] Se cumplen todos los criterios, con márgenes de 4× a 50×.** Drift + `sqlite3` 3.x funciona en Android 13 y en Linux, con WAL y FTS5.
+
+**[P] Propuesta:** aceptar la **ADR 10** (Drift) y descartar el plan B. Siguiente misión: esquema definitivo (páginas y capas, ADR 14) e importación desde el servidor (arquitectura §3.4), sin dejar de usar el servidor hasta que la importación esté probada.
+
+**Riesgo pendiente:** el tamaño del APK (+6,8 MB). Es asumible; si molesta, compilar solo para arm64 (`--split-per-abi`).

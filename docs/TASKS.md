@@ -143,6 +143,6 @@ Ver `product_research/arquitectura_tecnica.md §5`.
 - [x] Esquema de prototipo `notebooks`/`pages`/`strokes`, UUID v7 (ADR 12), WAL.
 - [x] Banco de pruebas y pantalla «Laboratorio» (base aparte que se vacía).
 - [x] CI en verde: análisis, pruebas (FTS5 disponible) y APK.
-- [ ] **Dueño:** ejecutar el laboratorio en la tablet y pegar el informe (`product_research/prototipo_almacenamiento.md` §4).
+- [x] Laboratorio en la tablet: todos los criterios cumplidos (autoguardado 0,33 ms, trazo 0,78 ms, abrir cuaderno 2 ms, FTS5 ✔).
 - [ ] Decidir la ADR 10 con los datos de la tablet.
 
