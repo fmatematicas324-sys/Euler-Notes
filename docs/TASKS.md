@@ -163,3 +163,13 @@ Decisiones del dueño: en la Etapa 2 las notas se guardan **igual que hoy** (Mar
 - [x] Tablet en modo sin conexión: nota nueva con un dibujo creado en la tablet (id UUID v7 `01a1ae16-…`) y estado «Guardado».
 - Fuera de alcance: enviar al servidor lo escrito sin conexión (sincronización), PDF, cálculo y figuras sin servidor.
 
+## Etapa 2 — Misión 017: copias de seguridad exportables ◐ (código y pruebas; falta la tablet)
+Parte de la rama de la Misión 016 (PR #10, sin fusionar). ADR 24 (propuesta).
+- [x] Configuración → Datos → Copia de seguridad → «Exportar copia», con progreso, cancelación y resultado (completada y verificada / falló).
+- [x] Formato `.eulernotes` documentado (`docs/BACKUP_FORMAT.md`): cuadernos, notas y dibujos con ids, relaciones, borrados lógicos, versión del esquema y del formato, conteos y SHA-256.
+- [x] Integridad: foto coherente en una transacción, `.partial` + `fsync` + verificación antes de renombrar; en Android, relectura del documento elegido y borrado si no coincide.
+- [x] Sin credenciales: ni preferencias ni token; la URL de origen se limpia de usuario, contraseña y consulta.
+- [x] Pruebas: base vacía, varios cuadernos, LaTeX, dibujos y tinta, UUID, integridad (byte cambiado, truncado, duplicados, relaciones rotas), errores de escritura y cancelación, esquemas v1/v2/futuro, selector de Android simulado y pantalla.
+- [ ] Probar en la tablet (ver el informe de la misión) y aprobar la ADR 24.
+- [ ] Siguiente: restaurar una copia (verificar, no duplicar, migrar esquemas antiguos).
+

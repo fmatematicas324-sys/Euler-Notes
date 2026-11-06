@@ -10,6 +10,7 @@ import '../../../core/widgets/server_dialog.dart';
 import '../../../core/widgets/state_views.dart';
 import '../../lab/storage_lab_screen.dart';
 import '../../notes/presentation/notebook_screen.dart';
+import '../../settings/settings_screen.dart';
 import '../domain/notebook.dart';
 import 'notebook_cover_card.dart';
 import 'notebook_dialogs.dart';
@@ -110,6 +111,14 @@ class NotebooksScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          IconButton(
+            key: const Key('open-settings'),
+            tooltip: 'Configuración',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+            ),
+          ),
           IconButton(
             tooltip: 'Laboratorio',
             icon: const Icon(Icons.science_outlined),

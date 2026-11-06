@@ -110,8 +110,9 @@ Se eligió la opción 1 como solución provisional (ADR 9). El objetivo aprobado
 ## Etapa 5 — Cálculo en el dispositivo ⏳ (requiere el estudio de la ADR 13)
 - Gráficas en Dart sin conexión; según los prototipos, Python embebido (serious_python o Chaquopy).
 
-## Etapa 6 — Exportar y respaldar ⏳
-- PDF, Markdown y LaTeX; copia de seguridad `.eulernotes`. Sincronización (PowerSync u otra) después de la v1.0.
+## Etapa 6 — Exportar y respaldar ◐
+- ◐ Copia de seguridad `.eulernotes`: **exportar** listo en la Misión 017 (adelantada porque el modo sin conexión guarda datos solo en la tablet); restaurar, pendiente.
+- PDF, Markdown y LaTeX. Sincronización (PowerSync u otra) después de la v1.0.
 
 ## Etapa 7 — v1.0 Pulido para tablet ⏳
 - Diseño adaptable, pruebas en una tablet real con lápiz, rendimiento y accesibilidad.
