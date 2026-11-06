@@ -80,6 +80,10 @@ Al exportar:
    usuario (selector del sistema, sin permisos de almacenamiento); el
    documento se **relee** y su SHA-256 y tamaño deben coincidir. Si no, o si
    algo falla después de elegir el destino, **el documento se borra**.
+   La comparación usa el SHA-256 **completo** (64 cifras hex). Si el proveedor
+   no acepta el modo `"wt"` se usa `"w"`, y si entrega una tubería sin
+   `fsync` (proveedores en la nube) se sigue adelante: la relectura decide.
+   Mientras Android copia al destino, la operación ya no se puede cancelar.
 
 El verificador (`verifyBackupFile`) comprueba:
 

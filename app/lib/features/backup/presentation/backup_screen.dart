@@ -94,7 +94,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 icon: const Icon(Icons.save_alt),
                 label: const Text('Exportar copia'),
               ),
-              if (_running && _cancel != null) ...[
+              // Mientras se guarda en el destino la copia ya no se puede
+              // interrumpir (la hace Android de una vez).
+              if (_running &&
+                  _cancel != null &&
+                  _progress?.phase != BackupPhase.copying) ...[
                 const SizedBox(width: 12),
                 TextButton(
                   key: const Key('backup-cancel'),

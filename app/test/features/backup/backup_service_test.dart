@@ -24,6 +24,12 @@ class FakeDocumentStore implements DocumentStore {
   bool cancelPicker = false;
   bool corruptCopy = false;
   bool failCopy = false;
+  bool failPicker = false;
+  bool failDelete = false;
+
+  /// Cambia el hash devuelto tras copiar (simula un proveedor que guarda
+  /// algo distinto o un hash recortado).
+  String Function(String sha)? tamperSha;
   final created = <String>[];
   final deleted = <String>[];
   File? copiedFrom;
@@ -33,6 +39,7 @@ class FakeDocumentStore implements DocumentStore {
 
   @override
   Future<String?> create(String suggestedName, String mimeType) async {
+    if (failPicker) throw PlatformException(code: 'no_picker');
     if (cancelPicker) return null;
     final uri = 'content://docs/$suggestedName';
     _file(uri).createSync(); // Android crea el documento vacío al elegirlo
@@ -50,12 +57,16 @@ class FakeDocumentStore implements DocumentStore {
       out.writeAsBytesSync(out.readAsBytesSync().sublist(1));
     }
     final check = await verifyFileSha(out);
-    return DocumentCopyReceipt(bytes: out.lengthSync(), sha256: check);
+    return DocumentCopyReceipt(
+      bytes: out.lengthSync(),
+      sha256: tamperSha?.call(check) ?? check,
+    );
   }
 
   @override
   Future<bool> delete(String uri) async {
     deleted.add(uri);
+    if (failDelete) throw MissingPluginException();
     final file = _file(uri);
     if (file.existsSync()) file.deleteSync();
     return true;
@@ -171,6 +182,78 @@ void main() {
       expect(store.copiedFrom, isNull);
       expect(docs.listSync(), isEmpty);
       expect(temp.listSync(), isEmpty);
+    });
+  });
+
+  group('Android: hash completo, selector y proveedores', () {
+    Matcher fails(String code) =>
+        throwsA(isA<BackupException>().having((e) => e.code, 'code', code));
+
+    test('un hash distinto solo en la última cifra se rechaza', () async {
+      store.tamperSha = (sha) =>
+          sha.substring(0, 63) + (sha.endsWith('0') ? '1' : '0');
+      await expectLater(service().export(), fails('verify_failed'));
+      expect(store.deleted, store.created);
+      expect(docs.listSync(), isEmpty);
+    });
+
+    test('un hash recortado (prefijo correcto) se rechaza', () async {
+      store.tamperSha = (sha) => sha.substring(0, 12);
+      await expectLater(service().export(), fails('verify_failed'));
+      expect(docs.listSync(), isEmpty);
+    });
+
+    test('un hash vacío (respuesta incompleta del canal) se rechaza', () async {
+      store.tamperSha = (_) => '';
+      await expectLater(service().export(), fails('verify_failed'));
+      expect(docs.listSync(), isEmpty);
+    });
+
+    test('el mismo hash en mayúsculas se acepta', () async {
+      store.tamperSha = (sha) => sha.toUpperCase();
+      expect(await service().export(), isNotNull);
+      expect(store.deleted, isEmpty);
+    });
+
+    test('si el selector falla no se crea nada', () async {
+      store.failPicker = true;
+      await expectLater(service().export(), fails('copy_failed'));
+      expect(store.created, isEmpty);
+      expect(docs.listSync(), isEmpty);
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test('un fallo al borrar no oculta el error original', () async {
+      store.failCopy = true;
+      store.failDelete = true;
+      await expectLater(service().export(), fails('copy_failed'));
+      expect(store.deleted, store.created);
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test('cancelar antes de copiar borra el documento vacío', () async {
+      final cancel = BackupCancelToken();
+      await expectLater(
+        service().export(
+          cancel: cancel,
+          onProgress: (p) {
+            if (p.phase == BackupPhase.verifying) cancel.cancel();
+          },
+        ),
+        throwsA(isA<BackupException>().having((e) => e.cancelled, 'c', true)),
+      );
+      expect(store.copiedFrom, isNull);
+      expect(store.deleted, store.created);
+      expect(docs.listSync(), isEmpty);
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test('isFullSha256', () {
+      expect(isFullSha256('a' * 64), isTrue);
+      expect(isFullSha256('A' * 64), isTrue);
+      expect(isFullSha256('a' * 63), isFalse);
+      expect(isFullSha256('${'a' * 63}g'), isFalse);
+      expect(isFullSha256(''), isFalse);
     });
   });
 

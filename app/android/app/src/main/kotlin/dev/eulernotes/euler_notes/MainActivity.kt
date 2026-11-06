@@ -12,7 +12,10 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileInputStream
+import java.io.FileNotFoundException
 import java.io.FileOutputStream
+import java.io.OutputStream
+import java.io.SyncFailedException
 import java.security.MessageDigest
 import java.util.concurrent.Executors
 
@@ -88,14 +91,21 @@ class MainActivity : FlutterActivity() {
         }
         io.execute {
             try {
-                // "wt": escribir desde cero (truncar) si el documento ya existía.
-                val out = contentResolver.openFileDescriptor(uri, "wt")
-                    ?: throw IllegalStateException("sin descriptor")
-                out.use { descriptor ->
-                    FileOutputStream(descriptor.fileDescriptor).use { stream ->
-                        FileInputStream(File(path)).use { input -> input.copyTo(stream, BUFFER) }
-                        stream.flush()
-                        stream.fd.sync()
+                // "wt": escribir desde cero (truncar). Algunos proveedores no
+                // aceptan "wt": entonces "w" (el documento recién creado está
+                // vacío; si no, la relectura de abajo detecta la diferencia).
+                val output = openForWrite(uri)
+                output.use { stream ->
+                    FileInputStream(File(path)).use { input -> input.copyTo(stream, BUFFER) }
+                    stream.flush()
+                    // Volcado al disco cuando es un archivo local. Los
+                    // proveedores en la nube dan una tubería sin fsync: no es
+                    // un error (la relectura comprueba el resultado).
+                    if (stream is FileOutputStream) {
+                        try {
+                            stream.fd.sync()
+                        } catch (e: SyncFailedException) {
+                        }
                     }
                 }
                 // Releer lo que quedó guardado de verdad.
@@ -118,6 +128,18 @@ class MainActivity : FlutterActivity() {
                 main.post { result.error("copy_failed", "No se pudo escribir el documento", null) }
             }
         }
+    }
+
+    private fun openForWrite(uri: Uri): OutputStream {
+        for (mode in arrayOf("wt", "w")) {
+            try {
+                contentResolver.openOutputStream(uri, mode)?.let { return it }
+            } catch (e: FileNotFoundException) {
+            } catch (e: IllegalArgumentException) {
+            } catch (e: UnsupportedOperationException) {
+            }
+        }
+        throw IllegalStateException("el proveedor no permite escribir")
     }
 
     private fun deleteDocument(call: MethodCall, result: MethodChannel.Result) {

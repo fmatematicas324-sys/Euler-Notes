@@ -189,7 +189,10 @@ class BackupService {
           'No se pudo escribir en el destino elegido',
         );
       }
-      if (receipt.sha256 != summary.sha256 || receipt.bytes != summary.bytes) {
+      // Comparación del hash completo (64 cifras hex), no de un prefijo.
+      if (!isFullSha256(receipt.sha256) ||
+          receipt.sha256.toLowerCase() != summary.sha256 ||
+          receipt.bytes != summary.bytes) {
         throw const BackupException(
           'verify_failed',
           'El archivo guardado no coincide con la copia (se ha borrado)',
@@ -199,7 +202,13 @@ class BackupService {
       onProgress?.call(const BackupProgress(BackupPhase.done, 1));
       return summary.withLocation(uri);
     } finally {
-      if (!saved) await _documents.delete(uri);
+      if (!saved) {
+        try {
+          await _documents.delete(uri);
+        } catch (_) {
+          // Que un fallo al borrar no oculte el error original.
+        }
+      }
       try {
         await work?.delete(recursive: true);
       } on FileSystemException {
@@ -208,6 +217,11 @@ class BackupService {
     }
   }
 }
+
+final _sha256Hex = RegExp(r'^[0-9a-fA-F]{64}$');
+
+/// `true` si [value] es un SHA-256 completo en hexadecimal.
+bool isFullSha256(String value) => _sha256Hex.hasMatch(value);
 
 enum BackupPlatform { android, desktop, unsupported }
 
