@@ -9,14 +9,15 @@ class NoteSummary {
   });
 
   factory NoteSummary.fromJson(Map<String, dynamic> json) => NoteSummary(
-    id: json['id'] as int,
-    notebookId: json['notebook_id'] as int,
+    id: '${json['id']}',
+    notebookId: '${json['notebook_id']}',
     title: json['title'] as String,
     updatedAt: DateTime.parse(json['updated_at'] as String),
   );
 
-  final int id;
-  final int notebookId;
+  /// Id del servidor (número en texto) o UUID local (Etapa 2).
+  final String id;
+  final String notebookId;
   final String title;
   final DateTime updatedAt;
 }
@@ -32,8 +33,8 @@ class Note extends NoteSummary {
   });
 
   factory Note.fromJson(Map<String, dynamic> json) => Note(
-    id: json['id'] as int,
-    notebookId: json['notebook_id'] as int,
+    id: '${json['id']}',
+    notebookId: '${json['notebook_id']}',
     title: json['title'] as String,
     updatedAt: DateTime.parse(json['updated_at'] as String),
     content: json['content'] as String,

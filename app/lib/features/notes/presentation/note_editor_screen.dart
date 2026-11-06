@@ -30,7 +30,7 @@ enum SaveStatus { saved, pending, saving, failed }
 class NoteEditorScreen extends ConsumerStatefulWidget {
   const NoteEditorScreen({super.key, required this.noteId});
 
-  final int noteId;
+  final String noteId;
 
   static const autosaveDelay = Duration(milliseconds: 800);
 
@@ -379,7 +379,7 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
   /// Crea un dibujo, inserta su bloque ```ink y abre el lienzo.
   Future<void> _insertDrawing() async {
     final repository = ref.read(drawingsRepositoryProvider);
-    int? drawingId;
+    String? drawingId;
     final ok = await runGuarded(context, () async {
       drawingId = (await repository.create(widget.noteId)).id;
     });

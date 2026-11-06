@@ -155,3 +155,11 @@ Decisiones del dueño: en la Etapa 2 las notas se guardan **igual que hoy** (Mar
 - [x] Tablet: «Importación verificada», 3 cuadernos, 3 notas y 7 dibujos en 0,5 s; al repetirla, 0 nuevos y 13 actualizados (sin duplicar).
 - [ ] Siguiente (Misión 016): que la app lea y escriba en la copia local.
 
+## Etapa 2 — Misión 016: modo sin conexión (beta) ✅ (2026-11-05)
+- [x] Ids de cuadernos, notas y dibujos como texto (número del servidor o UUID local).
+- [x] Repositorios con dos implementaciones (servidor y tablet) e interruptor «Modo sin conexión (beta)» en el Laboratorio; indicador en la pantalla principal.
+- [x] La importación conserva lo editado o borrado en la tablet si es más reciente.
+- [x] Pruebas: repositorios locales, importación tras trabajar sin conexión y la app completa con el servidor apagado.
+- [x] Tablet en modo sin conexión: nota nueva con un dibujo creado en la tablet (id UUID v7 `01a1ae16-…`) y estado «Guardado».
+- Fuera de alcance: enviar al servidor lo escrito sin conexión (sincronización), PDF, cálculo y figuras sin servidor.
+

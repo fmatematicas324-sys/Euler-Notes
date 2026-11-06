@@ -5,19 +5,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api_client.dart';
 import '../../core/local_db/local_database.dart';
+import '../../core/local_db/local_database_provider.dart';
 import '../../core/server_settings.dart';
 import '../sync/server_import.dart';
 import 'storage_benchmark.dart';
 
-/// Nombre de la base local real (la copia de las notas en la tablet).
-const localDatabaseName = 'euler_notes';
 
 /// Laboratorio de la Etapa 2.
 ///
 /// - Misión 014: mide la base de datos local (Drift + SQLite) en el
 ///   dispositivo real, con una base aparte (`euler_notes_lab`) que se vacía.
 /// - Misión 015: copia las notas del servidor a la tablet
-///   ([localDatabaseName]). La app sigue usando el servidor por ahora.
+///   ([localDatabaseName]).
+/// - Misión 016: interruptor del modo sin conexión.
 class StorageLabScreen extends ConsumerStatefulWidget {
   const StorageLabScreen({super.key});
 
@@ -38,7 +38,7 @@ class _StorageLabScreenState extends ConsumerState<StorageLabScreen> {
   }
 
   Future<void> _refreshCounts() async {
-    final db = LocalDatabase.open(localDatabaseName);
+    final db = ref.read(localDatabaseProvider);
     try {
       Future<int> count(String table) async =>
           int.parse(await db.scalar('SELECT count(*) FROM $table'));
@@ -50,8 +50,6 @@ class _StorageLabScreenState extends ConsumerState<StorageLabScreen> {
       if (mounted) setState(() => _localCounts = counts);
     } on Object {
       // Sin base local todavía (o no disponible): no se muestran cifras.
-    } finally {
-      await db.close();
     }
   }
 
@@ -61,7 +59,7 @@ class _StorageLabScreenState extends ConsumerState<StorageLabScreen> {
       _importError = null;
       _importStep = 'Preparando';
     });
-    final db = LocalDatabase.open(localDatabaseName);
+    final db = ref.read(localDatabaseProvider);
     try {
       final importer = ServerImporter(
         ref.read(apiClientProvider),
@@ -77,7 +75,6 @@ class _StorageLabScreenState extends ConsumerState<StorageLabScreen> {
     } on Object catch (error) {
       if (mounted) setState(() => _importError = error);
     } finally {
-      await db.close();
       if (mounted) setState(() => _importStep = null);
     }
     await _refreshCounts();
@@ -156,6 +153,25 @@ class _StorageLabScreenState extends ConsumerState<StorageLabScreen> {
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
+          if (!kIsWeb) ...[
+            Card(
+              child: SwitchListTile(
+                key: const Key('offline-mode'),
+                secondary: const Icon(Icons.cloud_off_outlined),
+                title: const Text('Modo sin conexión (beta)'),
+                subtitle: const Text(
+                  'Cuadernos, notas y dibujos se abren y guardan en la tablet, '
+                  'sin la compu. El cálculo, las figuras y los PDF siguen '
+                  'necesitando el servidor. Lo que escribas en este modo no '
+                  'se envía al servidor.',
+                ),
+                value: ref.watch(offlineModeProvider),
+                onChanged: (enabled) =>
+                    ref.read(offlineModeProvider.notifier).change(enabled),
+              ),
+            ),
+            const SizedBox(height: 24),
+          ],
           Text('Copia de tus notas en la tablet', style: theme.textTheme.titleLarge),
           const SizedBox(height: 8),
           Text(
@@ -214,7 +230,8 @@ class _StorageLabScreenState extends ConsumerState<StorageLabScreen> {
               subtitle: Text(
                 '${report.notebooks} cuadernos, ${report.notes} notas y '
                 '${report.drawings} dibujos '
-                '(${report.created} nuevos, ${report.updated} actualizados) '
+                '(${report.created} nuevos, ${report.updated} actualizados'
+                '${report.kept > 0 ? ', ${report.kept} conservados de la tablet' : ''}) '
                 'en ${(report.elapsed.inMilliseconds / 1000).toStringAsFixed(1)} s',
               ),
             ),

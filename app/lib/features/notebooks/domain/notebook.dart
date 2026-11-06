@@ -10,14 +10,15 @@ class Notebook {
   });
 
   factory Notebook.fromJson(Map<String, dynamic> json) => Notebook(
-    id: json['id'] as int,
+    id: '${json['id']}',
     title: json['title'] as String,
     cover: NotebookCover.fromId(json['cover'] as String?),
     createdAt: DateTime.parse(json['created_at'] as String),
     updatedAt: DateTime.parse(json['updated_at'] as String),
   );
 
-  final int id;
+  /// Id del servidor (número en texto) o UUID local (Etapa 2).
+  final String id;
   final String title;
   final NotebookCover cover;
   final DateTime createdAt;

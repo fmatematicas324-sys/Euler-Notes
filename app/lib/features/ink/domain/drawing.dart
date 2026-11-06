@@ -11,8 +11,8 @@ class Drawing {
   });
 
   factory Drawing.fromJson(Map<String, dynamic> json) => Drawing(
-    id: json['id'] as int,
-    noteId: json['note_id'] as int,
+    id: '${json['id']}',
+    noteId: '${json['note_id']}',
     width: (json['width'] as num).toDouble(),
     height: (json['height'] as num).toDouble(),
     strokes: [
@@ -21,8 +21,9 @@ class Drawing {
     ],
   );
 
-  final int id;
-  final int noteId;
+  /// Id del servidor (número en texto) o UUID local (Etapa 2).
+  final String id;
+  final String noteId;
 
   /// Tamaño del lienzo en sus propias unidades.
   final double width;

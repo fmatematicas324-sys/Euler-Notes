@@ -22,7 +22,7 @@ class InkEditorScreen extends ConsumerStatefulWidget {
     this.paper = PaperStyle.blank,
   });
 
-  final int drawingId;
+  final String drawingId;
   final PaperStyle paper;
 
   static const autosaveDelay = Duration(milliseconds: 800);

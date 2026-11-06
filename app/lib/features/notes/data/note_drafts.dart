@@ -64,18 +64,18 @@ class NoteDrafts {
   static const _prefix = 'note_draft';
 
   /// La clave incluye el servidor: el id 3 de un PC no es la nota 3 de otro.
-  String _key(int noteId) => '$_prefix|$_server|$noteId';
+  String _key(String noteId) => '$_prefix|$_server|$noteId';
 
-  NoteDraft? read(int noteId) {
+  NoteDraft? read(String noteId) {
     final raw = _preferences?.getString(_key(noteId));
     return raw == null ? null : NoteDraft.fromJson(raw);
   }
 
-  Future<void> write(int noteId, NoteDraft draft) async {
+  Future<void> write(String noteId, NoteDraft draft) async {
     await _preferences?.setString(_key(noteId), draft.toJson());
   }
 
-  Future<void> remove(int noteId) async {
+  Future<void> remove(String noteId) async {
     await _preferences?.remove(_key(noteId));
   }
 }

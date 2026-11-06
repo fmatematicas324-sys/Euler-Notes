@@ -7,7 +7,7 @@ import '../domain/note.dart';
 class NotesController extends AsyncNotifier<List<NoteSummary>> {
   NotesController(this.notebookId);
 
-  final int notebookId;
+  final String notebookId;
 
   NotesRepository get _repository => ref.read(notesRepositoryProvider);
 
@@ -21,7 +21,7 @@ class NotesController extends AsyncNotifier<List<NoteSummary>> {
     return note;
   }
 
-  Future<void> delete(int id) async {
+  Future<void> delete(String id) async {
     await _repository.delete(id);
     ref.invalidateSelf();
     await future;
@@ -29,7 +29,7 @@ class NotesController extends AsyncNotifier<List<NoteSummary>> {
 }
 
 final notesControllerProvider = AsyncNotifierProvider.autoDispose
-    .family<NotesController, List<NoteSummary>, int>(
+    .family<NotesController, List<NoteSummary>, String>(
       NotesController.new,
       retry: (_, _) => null,
     );

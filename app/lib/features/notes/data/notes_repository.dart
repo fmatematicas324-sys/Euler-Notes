@@ -1,15 +1,38 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/local_db/local_database_provider.dart';
+import '../../../core/server_settings.dart';
 import '../domain/note.dart';
 import '../domain/paper_style.dart';
+import 'local_notes_repository.dart';
 
-class NotesRepository {
-  NotesRepository(this._api);
+/// Notas. Dos implementaciones: el servidor ([ApiNotesRepository]) o la copia
+/// de la tablet ([LocalNotesRepository], modo sin conexión).
+abstract interface class NotesRepository {
+  Future<List<NoteSummary>> list(String notebookId);
+
+  Future<Note> create(String notebookId, String title);
+
+  Future<Note> get(String id);
+
+  Future<Note> update(
+    String id, {
+    String? title,
+    String? content,
+    PaperStyle? paper,
+  });
+
+  Future<void> delete(String id);
+}
+
+class ApiNotesRepository implements NotesRepository {
+  ApiNotesRepository(this._api);
 
   final ApiClient _api;
 
-  Future<List<NoteSummary>> list(int notebookId) async {
+  @override
+  Future<List<NoteSummary>> list(String notebookId) async {
     final body =
         await _api.get('/notebooks/$notebookId/notes') as List<dynamic>;
     return [
@@ -18,16 +41,19 @@ class NotesRepository {
     ];
   }
 
-  Future<Note> create(int notebookId, String title) async => Note.fromJson(
+  @override
+  Future<Note> create(String notebookId, String title) async => Note.fromJson(
     await _api.post('/notebooks/$notebookId/notes', {'title': title})
         as Map<String, dynamic>,
   );
 
-  Future<Note> get(int id) async =>
+  @override
+  Future<Note> get(String id) async =>
       Note.fromJson(await _api.get('/notes/$id') as Map<String, dynamic>);
 
+  @override
   Future<Note> update(
-    int id, {
+    String id, {
     String? title,
     String? content,
     PaperStyle? paper,
@@ -39,9 +65,12 @@ class NotesRepository {
     }) as Map<String, dynamic>,
   );
 
-  Future<void> delete(int id) => _api.delete('/notes/$id');
+  @override
+  Future<void> delete(String id) => _api.delete('/notes/$id');
 }
 
 final notesRepositoryProvider = Provider<NotesRepository>(
-  (ref) => NotesRepository(ref.watch(apiClientProvider)),
+  (ref) => ref.watch(offlineModeProvider)
+      ? LocalNotesRepository(ref.watch(localDatabaseProvider))
+      : ApiNotesRepository(ref.watch(apiClientProvider)),
 );

@@ -1,14 +1,33 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api_client.dart';
+import '../../../core/local_db/local_database_provider.dart';
+import '../../../core/server_settings.dart';
 import '../domain/notebook.dart';
 import '../domain/notebook_cover.dart';
+import 'local_notebooks_repository.dart';
 
-class NotebooksRepository {
-  NotebooksRepository(this._api);
+/// Cuadernos. Dos implementaciones: el servidor ([ApiNotebooksRepository]) o
+/// la copia de la tablet ([LocalNotebooksRepository], modo sin conexión).
+abstract interface class NotebooksRepository {
+  Future<List<Notebook>> list();
+
+  Future<Notebook> create(
+    String title, {
+    NotebookCover cover = NotebookCover.classic,
+  });
+
+  Future<Notebook> update(String id, {String? title, NotebookCover? cover});
+
+  Future<void> delete(String id);
+}
+
+class ApiNotebooksRepository implements NotebooksRepository {
+  ApiNotebooksRepository(this._api);
 
   final ApiClient _api;
 
+  @override
   Future<List<Notebook>> list() async {
     final body = await _api.get('/notebooks') as List<dynamic>;
     return [
@@ -16,6 +35,7 @@ class NotebooksRepository {
     ];
   }
 
+  @override
   Future<Notebook> create(
     String title, {
     NotebookCover cover = NotebookCover.classic,
@@ -24,8 +44,9 @@ class NotebooksRepository {
         as Map<String, dynamic>,
   );
 
+  @override
   Future<Notebook> update(
-    int id, {
+    String id, {
     String? title,
     NotebookCover? cover,
   }) async => Notebook.fromJson(
@@ -33,9 +54,12 @@ class NotebooksRepository {
         as Map<String, dynamic>,
   );
 
-  Future<void> delete(int id) => _api.delete('/notebooks/$id');
+  @override
+  Future<void> delete(String id) => _api.delete('/notebooks/$id');
 }
 
 final notebooksRepositoryProvider = Provider<NotebooksRepository>(
-  (ref) => NotebooksRepository(ref.watch(apiClientProvider)),
+  (ref) => ref.watch(offlineModeProvider)
+      ? LocalNotebooksRepository(ref.watch(localDatabaseProvider))
+      : ApiNotebooksRepository(ref.watch(apiClientProvider)),
 );

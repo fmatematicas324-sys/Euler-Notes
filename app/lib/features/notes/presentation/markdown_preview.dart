@@ -189,16 +189,17 @@ class _FigureBuilder extends MarkdownElementBuilder {
   ) {
     final source = element.attributes['source'] ?? '';
     if (element.attributes['language'] == 'ink') {
-      final id = RegExp(r'id\s*:\s*(\d+)').firstMatch(source)?[1];
+      // Número del servidor o UUID de la copia local (Etapa 2).
+      final id = RegExp(r'id\s*:\s*([0-9A-Za-z-]+)').firstMatch(source)?[1];
       if (id == null) {
         return Text(
-          'Dibujo no válido: falta «id: número»',
+          'Dibujo no válido: falta «id: …»',
           style: TextStyle(color: Theme.of(context).colorScheme.error),
         );
       }
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        child: InkPreview(drawingId: int.parse(id)),
+        child: InkPreview(drawingId: id),
       );
     }
     final isPlot = element.attributes['language'] == 'plot';

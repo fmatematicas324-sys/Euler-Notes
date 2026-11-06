@@ -24,7 +24,7 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - **Alternativas:** `sqflite` (+ `sqflite_common_ffi` en Linux), `sqlite3` directo, ObjectBox, Isar (comunidad), Sembast y Hive CE. La comparación está en `product_research/arquitectura_tecnica.md §2`.
 - **Riesgos:** necesita `build_runner` (generación de código). **[Hip]** Hay que validar que funciona con las *build hooks* nativas de `sqlite3` 3.x en Flutter 3.47, con un prototipo previo.
 
-## ADR 11 — El backend FastAPI pasa a ser opcional · **Propuesta**
+## ADR 11 — El backend FastAPI pasa a ser opcional · **En curso** (Misión 016: modo sin conexión para cuadernos, notas y dibujos)
 - **[P]** La app guarda y lee todo localmente. El backend solo se usa como **motor de cálculo remoto** (SymPy y matplotlib) cuando está disponible. Sin él, las funciones de cálculo muestran "motor no disponible" y nunca bloquean la escritura.
 - **Consecuencia:** el CRUD del backend queda para Web y Linux mientras se migran los datos, y después se retira o se mantiene como servidor de sincronización.
 
@@ -88,6 +88,12 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - En la copia local, los bloques ` ```ink ` usan el UUID del dibujo local. El servidor no se modifica.
 - Los PDF se importarán en una misión posterior.
 - Limitación conocida: si algo se borra en el servidor después de importarlo, la copia local lo conserva hasta que exista la sincronización.
+
+## ADR 23 — Modo sin conexión con interruptor · **Aceptada** (Misión 016)
+- Los repositorios de cuadernos, notas y dibujos son interfaces con dos implementaciones (servidor y tablet). Un ajuste (`offline_mode`, desactivado por defecto) elige cuál usar.
+- Los ids pasan a ser texto en toda la app: el número del servidor (`"12"`) o el UUID local.
+- Lo escrito en modo sin conexión **no se envía al servidor** (no hay sincronización todavía). La importación nunca pisa una fila local más reciente.
+- Motivo del interruptor: poder volver al comportamiento conocido si algo falla, mientras la Etapa 2 está en beta.
 
 ## Decisiones aplazadas
 - Sincronización (PowerSync, servidor propio o CRDT): después del MVP sin conexión.

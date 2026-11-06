@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/server_settings.dart';
 import '../../../core/widgets/app_logo.dart';
 import '../../../core/widgets/backend_status_icon.dart';
 import '../../../core/widgets/dialogs.dart';
@@ -97,6 +98,18 @@ class NotebooksScreen extends ConsumerWidget {
             icon: const Icon(Icons.dns_outlined),
             onPressed: () => showServerDialog(context),
           ),
+          if (ref.watch(offlineModeProvider))
+            IconButton(
+              key: const Key('offline-indicator'),
+              tooltip: 'Modo sin conexión: notas guardadas en la tablet',
+              icon: const Icon(Icons.cloud_off_outlined),
+              color: Theme.of(context).colorScheme.tertiary,
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const StorageLabScreen(),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: 'Laboratorio',
             icon: const Icon(Icons.science_outlined),

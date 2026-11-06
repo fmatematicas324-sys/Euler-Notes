@@ -18,6 +18,10 @@ class ImportReport {
   int created = 0;
   int updated = 0;
 
+  /// Filas que no se tocaron porque la tablet tiene una versión más reciente
+  /// (editadas o borradas en el modo sin conexión).
+  int kept = 0;
+
   /// Avisos no fatales (p. ej. un bloque ` ```ink ` que apunta a un dibujo
   /// que ya no existe en el servidor).
   final warnings = <String>[];
@@ -132,15 +136,18 @@ class ServerImporter {
       }
 
       final noteIds = <int, String>{};
+      final written = <int>{}; // notas que sí se escribieron
       for (final note in notes) {
         final notebookId = notebookIds[note['notebook_id'] as int];
         if (notebookId == null) continue; // la nota cambió de cuaderno
-        noteIds[note['id'] as int] = await _upsertNote(
+        final (id, wrote) = await _upsertNote(
           note,
           notebookId,
           content: note['content'] as String, // provisional
           report: report,
         );
+        noteIds[note['id'] as int] = id;
+        if (wrote) written.add(note['id'] as int);
         report.notes++;
       }
 
@@ -160,7 +167,7 @@ class ServerImporter {
       // Con todos los UUID ya conocidos, se reescriben los bloques ```ink.
       for (final note in notes) {
         final localId = noteIds[note['id'] as int];
-        if (localId == null) continue;
+        if (localId == null || !written.contains(note['id'])) continue;
         final content = rewriteInkIds(note['content'] as String, drawingIds);
         await (_db.update(_db.notes)..where((n) => n.id.equals(localId)))
             .write(NotesCompanion(content: Value(content)));
@@ -195,17 +202,26 @@ class ServerImporter {
     }
   }
 
-  Future<String?> _existing(TableInfo table, int sourceId) async {
+  /// Id local y fecha de la última modificación de la fila importada antes
+  /// desde [sourceId], o `null` si es nueva.
+  Future<(String, int)?> _existing(TableInfo table, int sourceId) async {
     final row = await _db
         .customSelect(
-          'SELECT id FROM ${table.actualTableName} '
+          'SELECT id, updated_at FROM ${table.actualTableName} '
           'WHERE source = ? AND source_id = ?',
           variables: [Variable.withString(_source), Variable.withInt(sourceId)],
           readsFrom: {table},
         )
         .getSingleOrNull();
-    return row?.read<String>('id');
+    return row == null
+        ? null
+        : (row.read<String>('id'), row.read<int>('updated_at'));
   }
+
+  /// La tablet gana si su versión es más reciente que la del servidor: no se
+  /// pierde lo escrito (o borrado) en el modo sin conexión.
+  bool _keepLocal((String, int)? existing, Map<String, dynamic> json) =>
+      existing != null && existing.$2 > _millis(json['updated_at']);
 
   Future<String> _upsertNotebook(
     Map<String, dynamic> json,
@@ -213,8 +229,12 @@ class ServerImporter {
   ) async {
     final sourceId = json['id'] as int;
     final existing = await _existing(_db.notebooks, sourceId);
+    if (_keepLocal(existing, json)) {
+      report.kept++;
+      return existing!.$1;
+    }
     final row = NotebooksCompanion(
-      id: Value(existing ?? uuidV7()),
+      id: Value(existing?.$1 ?? uuidV7()),
       source: Value(_source),
       sourceId: Value(sourceId),
       title: Value(json['title'] as String),
@@ -228,7 +248,9 @@ class ServerImporter {
     return row.id.value;
   }
 
-  Future<String> _upsertNote(
+  /// Devuelve el id local y si se escribió (`false` = se conservó la versión
+  /// de la tablet).
+  Future<(String, bool)> _upsertNote(
     Map<String, dynamic> json,
     String notebookId, {
     required String content,
@@ -236,8 +258,12 @@ class ServerImporter {
   }) async {
     final sourceId = json['id'] as int;
     final existing = await _existing(_db.notes, sourceId);
+    if (_keepLocal(existing, json)) {
+      report.kept++;
+      return (existing!.$1, false);
+    }
     final row = NotesCompanion(
-      id: Value(existing ?? uuidV7()),
+      id: Value(existing?.$1 ?? uuidV7()),
       source: Value(_source),
       sourceId: Value(sourceId),
       notebookId: Value(notebookId),
@@ -250,7 +276,7 @@ class ServerImporter {
     );
     await _db.into(_db.notes).insertOnConflictUpdate(row);
     _count(report, isNew: existing == null);
-    return row.id.value;
+    return (row.id.value, true);
   }
 
   Future<String> _upsertDrawing(
@@ -260,8 +286,12 @@ class ServerImporter {
   ) async {
     final sourceId = json['id'] as int;
     final existing = await _existing(_db.drawings, sourceId);
+    if (_keepLocal(existing, json)) {
+      report.kept++;
+      return existing!.$1;
+    }
     final row = DrawingsCompanion(
-      id: Value(existing ?? uuidV7()),
+      id: Value(existing?.$1 ?? uuidV7()),
       source: Value(_source),
       sourceId: Value(sourceId),
       noteId: Value(noteId),
