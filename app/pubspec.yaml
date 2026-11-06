@@ -44,6 +44,10 @@ dependencies:
   # Base de datos local (Etapa 2, ADR 10; prototipo de la Misión 014).
   drift: ^2.35.3
   drift_flutter: ">=0.2.8 <0.4.0"
+  # Copias de seguridad (Misión 017): SHA-256 y carpeta temporal. Ya venían
+  # como dependencias indirectas; se declaran porque se usan directamente.
+  crypto: ^3.0.8
+  path_provider: ^2.1.6
 
 dev_dependencies:
   flutter_test:
