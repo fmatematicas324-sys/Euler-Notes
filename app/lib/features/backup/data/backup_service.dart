@@ -28,7 +28,13 @@ abstract class DocumentStore {
   /// Abre el selector «Guardar como». Devuelve la URI o `null` si se cancela.
   Future<String?> create(String suggestedName, String mimeType);
 
+  /// `true` si el documento ya tiene contenido (el usuario eligió un archivo
+  /// existente), `false` si está vacío (recién creado por el selector) y
+  /// `null` si el proveedor no deja saberlo.
+  Future<bool?> hasContent(String uri);
+
   /// Copia [file] en [uri] y relee el documento para calcular su SHA-256.
+  /// Solo se llama con documentos vacíos (ver [hasContent]).
   Future<DocumentCopyReceipt> copyFrom(File file, String uri);
 
   /// Borra el documento (p. ej. si la copia falló). `false` si no pudo.
@@ -47,6 +53,10 @@ class AndroidDocumentStore implements DocumentStore {
         'name': suggestedName,
         'mimeType': mimeType,
       });
+
+  @override
+  Future<bool?> hasContent(String uri) =>
+      _channel.invokeMethod<bool>('documentHasContent', {'uri': uri});
 
   @override
   Future<DocumentCopyReceipt> copyFrom(File file, String uri) async {
@@ -102,6 +112,7 @@ class BackupService {
     Future<Directory> Function()? tempDirectory,
     DateTime Function()? clock,
     this.openWriter,
+    this.replace,
   }) : _documents = documents ?? const AndroidDocumentStore(),
        _pickSavePath = pickSavePath ?? _desktopSavePath,
        _tempDirectory = tempDirectory ?? getTemporaryDirectory,
@@ -117,18 +128,28 @@ class BackupService {
   /// Solo para pruebas: simula errores de escritura.
   final BackupWriterFactory? openWriter;
 
+  /// Solo para pruebas: simula errores al reemplazar el archivo final.
+  final BackupReplacer? replace;
+
   BackupExporter _exporter() => BackupExporter(
     _db,
     appVersion: appVersion,
     clock: _clock,
     openWriter: openWriter,
+    replace: replace,
   );
 
   /// Exporta la copia. Devuelve `null` si el usuario cancela la elección del
   /// destino; lanza [BackupException] si falla.
+  ///
+  /// En Android, si el usuario elige un archivo que ya tiene contenido (p. ej.
+  /// una copia anterior), ese archivo **no se toca**: se llama a
+  /// [onTargetExists] y, si devuelve `true`, se vuelve a abrir el selector con
+  /// otro nombre; si no, se lanza `target_exists`.
   Future<BackupSummary?> export({
     BackupProgressCallback? onProgress,
     BackupCancelToken? cancel,
+    Future<bool> Function()? onTargetExists,
   }) async {
     final name = suggestedBackupName(_clock());
     onProgress?.call(const BackupProgress(BackupPhase.choosing));
@@ -147,24 +168,58 @@ class BackupService {
           cancel: cancel,
         );
       case BackupPlatform.android:
-        return _exportToDocument(name, onProgress, cancel);
+        return _exportToDocument(name, onProgress, cancel, onTargetExists);
     }
+  }
+
+  /// Abre el selector hasta obtener un documento **vacío**. Un documento con
+  /// contenido (o del que no se sabe) nunca se escribe ni se borra: el
+  /// Storage Access Framework no ofrece un reemplazo atómico con permiso
+  /// sobre un solo documento, así que sobrescribirlo podría destruir una
+  /// copia anterior si la nueva fallara.
+  Future<String?> _chooseEmptyDocument(
+    String suggested,
+    Future<bool> Function()? onTargetExists,
+  ) async {
+    var name = suggested;
+    for (var attempt = 1; attempt <= maxNameAttempts; attempt++) {
+      final String? uri;
+      try {
+        uri = await _documents.create(name, backupMimeType);
+      } on PlatformException {
+        throw const BackupException(
+          'copy_failed',
+          'No se pudo abrir el selector de archivos',
+        );
+      }
+      if (uri == null) return null;
+
+      bool? content;
+      try {
+        content = await _documents.hasContent(uri);
+      } on PlatformException {
+        content = null; // sin saberlo, se trata como ocupado
+      }
+      if (content == false) return uri;
+
+      final again = await onTargetExists?.call() ?? false;
+      if (!again) break;
+      name = alternativeBackupName(suggested, attempt + 1);
+    }
+    throw const BackupException(
+      'target_exists',
+      'Ese archivo ya existe y no se sobrescribió. Vuelve a exportar y '
+          'elige otro nombre.',
+    );
   }
 
   Future<BackupSummary?> _exportToDocument(
     String name,
     BackupProgressCallback? onProgress,
     BackupCancelToken? cancel,
+    Future<bool> Function()? onTargetExists,
   ) async {
-    final String? uri;
-    try {
-      uri = await _documents.create(name, backupMimeType);
-    } on PlatformException {
-      throw const BackupException(
-        'copy_failed',
-        'No se pudo abrir el selector de archivos',
-      );
-    }
+    final uri = await _chooseEmptyDocument(name, onTargetExists);
     if (uri == null) return null;
 
     Directory? work;
@@ -202,6 +257,8 @@ class BackupService {
       onProgress?.call(const BackupProgress(BackupPhase.done, 1));
       return summary.withLocation(uri);
     } finally {
+      // Solo se borra un documento que estaba vacío al elegirlo (lo creó el
+      // selector para esta copia): nunca una copia anterior.
       if (!saved) {
         try {
           await _documents.delete(uri);
@@ -222,6 +279,9 @@ final _sha256Hex = RegExp(r'^[0-9a-fA-F]{64}$');
 
 /// `true` si [value] es un SHA-256 completo en hexadecimal.
 bool isFullSha256(String value) => _sha256Hex.hasMatch(value);
+
+/// Máximo de veces que se vuelve a preguntar por otro nombre.
+const maxNameAttempts = 5;
 
 enum BackupPlatform { android, desktop, unsupported }
 

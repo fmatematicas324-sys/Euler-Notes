@@ -25,6 +25,15 @@ class FakeDocumentStore implements DocumentStore {
   bool corruptCopy = false;
   bool failCopy = false;
   bool failPicker = false;
+
+  /// Nombres que «elige» el usuario en cada apertura del selector (`null` =
+  /// cierra el selector). Vacío: acepta el nombre sugerido.
+  final picks = <String?>[];
+  final suggested = <String>[];
+
+  /// El proveedor no deja saber si el documento tiene contenido.
+  bool contentUnknown = false;
+  bool contentThrows = false;
   bool failDelete = false;
 
   /// Cambia el hash devuelto tras copiar (simula un proveedor que guarda
@@ -41,10 +50,21 @@ class FakeDocumentStore implements DocumentStore {
   Future<String?> create(String suggestedName, String mimeType) async {
     if (failPicker) throw PlatformException(code: 'no_picker');
     if (cancelPicker) return null;
-    final uri = 'content://docs/$suggestedName';
-    _file(uri).createSync(); // Android crea el documento vacío al elegirlo
+    suggested.add(suggestedName);
+    final name = picks.isEmpty ? suggestedName : picks.removeAt(0);
+    if (name == null) return null;
+    final uri = 'content://docs/$name';
+    // Un documento nuevo se crea vacío; uno existente se entrega tal cual.
+    if (!_file(uri).existsSync()) _file(uri).createSync();
     created.add(uri);
     return uri;
+  }
+
+  @override
+  Future<bool?> hasContent(String uri) async {
+    if (contentThrows) throw PlatformException(code: 'query_failed');
+    if (contentUnknown) return null;
+    return _file(uri).lengthSync() > 0;
   }
 
   @override
@@ -92,6 +112,7 @@ void main() {
     BackupPlatform platform = BackupPlatform.android,
     SavePathPicker? pick,
     BackupWriterFactory? openWriter,
+    BackupReplacer? replace,
   }) => BackupService(
     db,
     platform: platform,
@@ -100,6 +121,7 @@ void main() {
     tempDirectory: () async => temp,
     clock: () => DateTime(2026, 11, 6, 15, 30),
     openWriter: openWriter,
+    replace: replace,
   );
 
   setUp(() async {
@@ -257,6 +279,244 @@ void main() {
     });
   });
 
+  group('Android: nunca sobrescribir una copia anterior', () {
+    const oldName = 'copia-anterior.eulernotes';
+    late File old;
+    late List<int> oldBytes;
+
+    Matcher fails(String code) =>
+        throwsA(isA<BackupException>().having((e) => e.code, 'code', code));
+
+    setUp(() async {
+      // Copia anterior válida en la carpeta del proveedor.
+      await service(
+        platform: BackupPlatform.desktop,
+        pick: (_) async {
+          return '${docs.path}/$oldName';
+        },
+      ).export();
+      old = File('${docs.path}/$oldName');
+      oldBytes = old.readAsBytesSync();
+      await LocalNotebooksRepository(db).create('Cálculo');
+    });
+
+    void expectOldIntact() {
+      expect(old.readAsBytesSync(), oldBytes);
+      expect(store.deleted, isNot(contains('content://docs/$oldName')));
+    }
+
+    test('elegir el archivo existente y no aceptar otro nombre', () async {
+      store.picks.add(oldName);
+      var asked = 0;
+      await expectLater(
+        service().export(
+          onTargetExists: () async {
+            asked++;
+            return false;
+          },
+        ),
+        fails('target_exists'),
+      );
+      expect(asked, 1);
+      expectOldIntact();
+      expect(store.copiedFrom, isNull);
+      expect(store.deleted, isEmpty);
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test(
+      'sin diálogo (onTargetExists ausente) tampoco se sobrescribe',
+      () async {
+        store.picks.add(oldName);
+        await expectLater(service().export(), fails('target_exists'));
+        expectOldIntact();
+      },
+    );
+
+    test(
+      'elegir otro nombre guarda la copia nueva y conserva la anterior',
+      () async {
+        store.picks.add(oldName); // la segunda vez acepta el sugerido
+        final summary = await service().export(
+          onTargetExists: () async => true,
+        );
+        expect(store.suggested, [
+          'euler-notes-20261106-1530.eulernotes',
+          'euler-notes-20261106-1530-2.eulernotes',
+        ]);
+        expect(
+          summary!.location,
+          'content://docs/euler-notes-20261106-1530-2.eulernotes',
+        );
+        expectOldIntact();
+        final fresh = File(
+          '${docs.path}/euler-notes-20261106-1530-2.eulernotes',
+        );
+        expect((await verifyBackupFile(fresh)).counts['notebooks'], 2);
+        expect((await verifyBackupFile(old)).counts['notebooks'], 1);
+      },
+    );
+
+    test(
+      'si no se puede saber si tiene contenido, se trata como ocupado',
+      () async {
+        store.picks.add(oldName);
+        store.contentUnknown = true;
+        await expectLater(service().export(), fails('target_exists'));
+        expectOldIntact();
+        expect(store.copiedFrom, isNull);
+      },
+    );
+
+    test('si la consulta del proveedor falla, se trata como ocupado', () async {
+      store.picks.add(oldName);
+      store.contentThrows = true;
+      await expectLater(service().export(), fails('target_exists'));
+      expectOldIntact();
+    });
+
+    test(
+      'tras $maxNameAttempts nombres ocupados se rinde sin tocar nada',
+      () async {
+        store.picks.addAll(List.filled(maxNameAttempts, oldName));
+        await expectLater(
+          service().export(onTargetExists: () async => true),
+          fails('target_exists'),
+        );
+        expect(store.suggested, hasLength(maxNameAttempts));
+        expectOldIntact();
+      },
+    );
+
+    test('un documento existente pero vacío sí se puede usar', () async {
+      File('${docs.path}/vacio.eulernotes').createSync();
+      store.picks.add('vacio.eulernotes');
+      final summary = await service().export();
+      expect(summary!.location, 'content://docs/vacio.eulernotes');
+      expectOldIntact();
+    });
+
+    test('error al escribir: se borra solo el documento nuevo', () async {
+      await expectLater(
+        service(
+          openWriter: (_) async =>
+              throw const FileSystemException('No space left on device'),
+        ).export(),
+        fails('write_failed'),
+      );
+      expectOldIntact();
+      expect(store.deleted, [
+        'content://docs/euler-notes-20261106-1530.eulernotes',
+      ]);
+      expect(docs.listSync().map((e) => e.uri.pathSegments.last), [oldName]);
+      expect(temp.listSync(), isEmpty);
+    });
+
+    test('error al verificar: se borra solo el documento nuevo', () async {
+      await expectLater(
+        service(
+          openWriter: (file) async =>
+              _Corrupting(await FileBackupWriter.open(file)),
+        ).export(),
+        fails('verify_failed'),
+      );
+      expect(store.copiedFrom, isNull);
+      expectOldIntact();
+      expect(docs.listSync().map((e) => e.uri.pathSegments.last), [oldName]);
+    });
+
+    test(
+      'error al copiar al proveedor: se borra solo el documento nuevo',
+      () async {
+        store.failCopy = true;
+        await expectLater(service().export(), fails('copy_failed'));
+        expectOldIntact();
+        expect(docs.listSync().map((e) => e.uri.pathSegments.last), [oldName]);
+      },
+    );
+
+    test(
+      'copia distinta en el proveedor: se borra solo el documento nuevo',
+      () async {
+        store.corruptCopy = true;
+        await expectLater(service().export(), fails('verify_failed'));
+        expectOldIntact();
+        expect(docs.listSync().map((e) => e.uri.pathSegments.last), [oldName]);
+      },
+    );
+  });
+
+  group('escritorio: reemplazo atómico de un archivo local', () {
+    late File old;
+    late List<int> oldBytes;
+
+    Future<BackupSummary?> exportTo(
+      File file, {
+      BackupWriterFactory? openWriter,
+      BackupReplacer? replace,
+    }) => service(
+      platform: BackupPlatform.desktop,
+      pick: (_) async => file.path,
+      openWriter: openWriter,
+      replace: replace,
+    ).export();
+
+    setUp(() async {
+      old = File('${root.path}/mi-copia.eulernotes');
+      await exportTo(old);
+      oldBytes = old.readAsBytesSync();
+      await LocalNotebooksRepository(db).create('Cálculo');
+    });
+
+    test(
+      'éxito: la copia anterior se sustituye por la nueva verificada',
+      () async {
+        await exportTo(old);
+        expect((await verifyBackupFile(old)).counts['notebooks'], 2);
+        expect(File('${old.path}.partial').existsSync(), isFalse);
+      },
+    );
+
+    test('error al escribir: la anterior queda intacta', () async {
+      await expectLater(
+        exportTo(
+          old,
+          openWriter: (_) async =>
+              throw const FileSystemException('No space left on device'),
+        ),
+        throwsA(isA<BackupException>()),
+      );
+      expect(old.readAsBytesSync(), oldBytes);
+      expect(File('${old.path}.partial').existsSync(), isFalse);
+    });
+
+    test('error al verificar: la anterior queda intacta', () async {
+      await expectLater(
+        exportTo(
+          old,
+          openWriter: (file) async =>
+              _Corrupting(await FileBackupWriter.open(file)),
+        ),
+        throwsA(isA<BackupException>()),
+      );
+      expect(old.readAsBytesSync(), oldBytes);
+      expect(File('${old.path}.partial').existsSync(), isFalse);
+    });
+
+    test('error al reemplazar: la anterior queda intacta', () async {
+      await expectLater(
+        exportTo(
+          old,
+          replace: (_, destination) async =>
+              throw FileSystemException('rename falló', destination),
+        ),
+        throwsA(isA<BackupException>()),
+      );
+      expect(old.readAsBytesSync(), oldBytes);
+      expect(File('${old.path}.partial').existsSync(), isFalse);
+    });
+  });
+
   group('escritorio y otras plataformas', () {
     test('Linux: escribe en la ruta elegida', () async {
       final path = '${root.path}/mi-copia.eulernotes';
@@ -330,6 +590,101 @@ void main() {
       );
     });
 
+    testWidgets('muestra el SHA-256 completo y permite copiarlo', (
+      tester,
+    ) async {
+      String? clipboard;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            clipboard = (call.arguments as Map)['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [backupServiceProvider.overrideWithValue(service())],
+          child: const MaterialApp(home: BackupScreen()),
+        ),
+      );
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(const Key('backup-export')));
+        for (var i = 0; i < 100; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+          if (find.byKey(const Key('backup-done')).evaluate().isNotEmpty) {
+            break;
+          }
+        }
+      });
+      await tester.pump();
+      final saved = File('${docs.path}/euler-notes-20261106-1530.eulernotes');
+      final sha = (await tester.runAsync(() => verifyBackupFile(saved)))!
+          .sha256;
+      expect(sha, hasLength(64));
+      final shown = tester.widget<SelectableText>(
+        find.byKey(const Key('backup-sha256')),
+      );
+      expect(shown.data, sha); // completo, sin recortar
+
+      await tester.tap(find.byKey(const Key('backup-copy-sha256')));
+      await tester.pump();
+      expect(clipboard, sha);
+      expect(find.text('SHA-256 copiado'), findsOneWidget);
+    });
+
+    testWidgets('archivo existente: pregunta y no lo sobrescribe', (
+      tester,
+    ) async {
+      final old = File('${docs.path}/anterior.eulernotes')
+        ..writeAsStringSync('copia anterior\n');
+      store.picks.add('anterior.eulernotes');
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [backupServiceProvider.overrideWithValue(service())],
+          child: const MaterialApp(home: BackupScreen()),
+        ),
+      );
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(const Key('backup-export')));
+        for (var i = 0; i < 50; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+          if (find
+              .byKey(const Key('backup-target-exists'))
+              .evaluate()
+              .isNotEmpty) {
+            break;
+          }
+        }
+      });
+      expect(find.byKey(const Key('backup-target-exists')), findsOneWidget);
+      expect(old.readAsStringSync(), 'copia anterior\n');
+
+      await tester.tap(find.byKey(const Key('backup-choose-another')));
+      await tester.runAsync(() async {
+        for (var i = 0; i < 100; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+          await tester.pump();
+          if (find.byKey(const Key('backup-done')).evaluate().isNotEmpty) {
+            break;
+          }
+        }
+      });
+      await tester.pump();
+      expect(find.byKey(const Key('backup-done')), findsOneWidget);
+      expect(old.readAsStringSync(), 'copia anterior\n');
+      expect(store.suggested.last, 'euler-notes-20261106-1530-2.eulernotes');
+    });
+
     testWidgets('informa si la copia falla', (tester) async {
       store.failCopy = true;
       await tester.pumpWidget(
@@ -397,4 +752,29 @@ void main() {
     expect(kotlin, contains('Intent.ACTION_CREATE_DOCUMENT'));
     expect(kotlin, isNot(contains('Log.'))); // nada en los logs
   });
+}
+
+/// Escritor que estropea un byte: la verificación debe detectarlo.
+class _Corrupting implements BackupWriter {
+  _Corrupting(this._inner);
+
+  final BackupWriter _inner;
+  bool _done = false;
+
+  @override
+  Future<void> write(List<int> bytes) async {
+    if (!_done && bytes.length > 20) {
+      _done = true;
+      final copy = [...bytes];
+      copy[10] = copy[10] ^ 0x01;
+      return _inner.write(copy);
+    }
+    await _inner.write(bytes);
+  }
+
+  @override
+  Future<void> close() => _inner.close();
+
+  @override
+  Future<void> abort() => _inner.abort();
 }

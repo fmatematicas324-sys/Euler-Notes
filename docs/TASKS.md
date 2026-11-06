@@ -170,6 +170,8 @@ Parte de la rama de la Misión 016 (PR #10, sin fusionar). ADR 24 (propuesta).
 - [x] Integridad: foto coherente en una transacción, `.partial` + `fsync` + verificación antes de renombrar; en Android, relectura del documento elegido y borrado si no coincide.
 - [x] Sin credenciales: ni preferencias ni token; la URL de origen se limpia de usuario, contraseña y consulta.
 - [x] Pruebas: base vacía, varios cuadernos, LaTeX, dibujos y tinta, UUID, integridad (byte cambiado, truncado, duplicados, relaciones rotas), errores de escritura y cancelación, esquemas v1/v2/futuro, selector de Android simulado y pantalla.
+- [x] Protección de copias anteriores: nunca se sobrescribe un documento con contenido en Android (se pide otro nombre); en archivos locales, reemplazo atómico tras verificar. Pruebas de fallos al escribir, verificar, copiar y reemplazar.
+- [x] SHA-256 completo en pantalla, seleccionable y con botón «Copiar».
 - [ ] Probar en la tablet (ver el informe de la misión) y aprobar la ADR 24.
 - [ ] Siguiente: restaurar una copia (verificar, no duplicar, migrar esquemas antiguos).
 

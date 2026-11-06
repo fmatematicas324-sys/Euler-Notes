@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/backup_service.dart';
@@ -24,6 +25,35 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   String? _error;
   bool _dismissed = false;
 
+  /// El archivo elegido ya existe: no se sobrescribe. ¿Elegir otro nombre?
+  Future<bool> _askAnotherName() async {
+    if (!mounted) return false;
+    final answer = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        key: const Key('backup-target-exists'),
+        title: const Text('Ese archivo ya existe'),
+        content: const Text(
+          'Para no estropear una copia anterior, Euler Notes no sobrescribe '
+          'archivos. El archivo elegido no se ha tocado.\n\n'
+          '¿Quieres guardar la copia con otro nombre?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            key: const Key('backup-choose-another'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Elegir otro nombre'),
+          ),
+        ],
+      ),
+    );
+    return answer ?? false;
+  }
+
   Future<void> _export() async {
     final cancel = BackupCancelToken();
     setState(() {
@@ -39,6 +69,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           .read(backupServiceProvider)
           .export(
             cancel: cancel,
+            onTargetExists: _askAnotherName,
             onProgress: (p) {
               if (mounted) setState(() => _progress = p);
             },
@@ -155,23 +186,68 @@ class _ResultCard extends StatelessWidget {
           leading: Icon(Icons.error_outline, color: colors.onErrorContainer),
           title: const Text('La copia no se completó'),
           subtitle: Text(
-            '$error\nNo quedó ningún archivo a medias y tus datos no '
-            'cambiaron.',
+            '$error\nNo quedó ningún archivo a medias, no se tocó ninguna '
+            'copia anterior y tus datos no cambiaron.',
           ),
         ),
       );
     }
     final kib = (s.bytes / 1024).toStringAsFixed(1);
+    final theme = Theme.of(context);
     return Card(
       key: const Key('backup-done'),
-      child: ListTile(
-        leading: Icon(Icons.verified_outlined, color: colors.primary),
-        title: const Text('Copia completada y verificada'),
-        subtitle: Text(
-          '${s.counts['notebooks']} cuadernos · ${s.counts['notes']} notas · '
-          '${s.counts['drawings']} dibujos · $kib KiB\n'
-          'Esquema ${s.schemaVersion} · SHA-256 ${s.sha256.substring(0, 12)}…'
-          '${s.warnings.isEmpty ? '' : '\nAvisos: ${s.warnings.join('; ')}'}',
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(0, 4, 8, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ListTile(
+              leading: Icon(Icons.verified_outlined, color: colors.primary),
+              title: const Text('Copia completada y verificada'),
+              subtitle: Text(
+                '${s.counts['notebooks']} cuadernos · ${s.counts['notes']} '
+                'notas · ${s.counts['drawings']} dibujos · $kib KiB · '
+                'esquema ${s.schemaVersion}'
+                '${s.warnings.isEmpty ? '' : '\nAvisos: ${s.warnings.join('; ')}'}',
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text(
+                'SHA-256 del archivo',
+                style: theme.textTheme.labelMedium,
+              ),
+            ),
+            Row(
+              children: [
+                const SizedBox(width: 16),
+                Expanded(
+                  // Completo y seleccionable: para compararlo sin ambigüedad
+                  // con `sha256sum` en otro equipo.
+                  child: SelectableText(
+                    s.sha256,
+                    key: const Key('backup-sha256'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
+                IconButton(
+                  key: const Key('backup-copy-sha256'),
+                  tooltip: 'Copiar SHA-256',
+                  icon: const Icon(Icons.copy_outlined),
+                  onPressed: () async {
+                    await Clipboard.setData(ClipboardData(text: s.sha256));
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('SHA-256 copiado')),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

@@ -79,11 +79,39 @@ Al exportar:
 4. En Android, el archivo verificado se copia al documento que eligió el
    usuario (selector del sistema, sin permisos de almacenamiento); el
    documento se **relee** y su SHA-256 y tamaño deben coincidir. Si no, o si
-   algo falla después de elegir el destino, **el documento se borra**.
+   algo falla después de elegir el destino, **el documento nuevo se borra**.
    La comparación usa el SHA-256 **completo** (64 cifras hex). Si el proveedor
    no acepta el modo `"wt"` se usa `"w"`, y si entrega una tubería sin
    `fsync` (proveedores en la nube) se sigue adelante: la relectura decide.
    Mientras Android copia al destino, la operación ya no se puede cancelar.
+
+### 2.1 Copias anteriores: nunca se pierden
+
+Regla: **una copia anterior nunca se borra ni se modifica antes de que la
+nueva esté completamente verificada**, y si la nueva falla, la anterior queda
+intacta.
+
+- **Archivos locales** (Linux, y el archivo temporal en Android): la copia se
+  escribe en `<nombre>.partial`, se verifica entera y solo entonces se
+  renombra encima del nombre final. En un mismo sistema de archivos ese
+  `rename` es atómico: el archivo anterior se sustituye en un solo paso o no
+  se toca. Si falla la escritura, la verificación o el propio reemplazo, el
+  `.partial` se borra y el archivo anterior sigue igual.
+- **Android (Storage Access Framework)**: con permiso sobre un solo documento
+  no hay ninguna operación de reemplazo atómico (no se puede escribir al lado
+  y renombrar). Por eso **nunca se sobrescribe un documento con contenido**:
+  tras el selector, la app pregunta al proveedor si el documento tiene
+  contenido (`OpenableColumns.SIZE` y, si hace falta, leer un byte). Si lo
+  tiene, o si no se puede saber, el documento **no se toca** y se ofrece
+  «Elegir otro nombre» (`…-2.eulernotes`, `…-3`…; como mucho 5 intentos). Si
+  el usuario no quiere, la exportación termina con `target_exists` sin haber
+  escrito ni borrado nada. Solo se escribe en documentos vacíos, es decir,
+  recién creados por el selector, y solo esos se borran si algo falla.
+
+### 2.2 Comprobación manual
+
+La app muestra el SHA-256 **completo** del archivo (texto seleccionable y botón
+«Copiar»), para compararlo sin ambigüedad con `sha256sum` en otro equipo.
 
 El verificador (`verifyBackupFile`) comprueba:
 
@@ -100,8 +128,8 @@ El verificador (`verifyBackupFile`) comprueba:
 Avisos (no impiden la copia): ids que no tienen forma de UUID y bloques
 ` ```ink ` que apuntan a un dibujo que no existe (ya faltaba en la base).
 
-Para comprobar a mano el SHA-256 de un archivo completo (lo muestra la app,
-abreviado):
+Para comprobar a mano el SHA-256 del archivo completo (debe ser idéntico al
+que muestra la app):
 
 ```sh
 sha256sum euler-notes-20261106-1530.eulernotes

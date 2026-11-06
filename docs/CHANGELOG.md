@@ -16,7 +16,7 @@ Formato basado en *Keep a Changelog*. Versionado semántico. Reconstruido a part
 - Máximo 2 tareas aisladas simultáneas (`EULER_MAX_PARALLEL_TASKS`); si no hay hueco, 503 `server_busy`.
 - App: campo «Token de acceso» (oculto) en el diálogo del servidor; «Probar conexión» valida el token con `/auth/check`.
 ### Añadido
-- Misión 017 (Etapa 2): copias de seguridad exportables. Configuración → Datos → Copia de seguridad → «Exportar copia» guarda cuadernos, notas y dibujos en un archivo `.eulernotes` verificado con SHA-256 donde elija el usuario (formato en `docs/BACKUP_FORMAT.md`, ADR 24). No modifica la base ni incluye el token.
+- Misión 017 (Etapa 2): copias de seguridad exportables. Configuración → Datos → Copia de seguridad → «Exportar copia» guarda cuadernos, notas y dibujos en un archivo `.eulernotes` verificado con SHA-256 donde elija el usuario (formato en `docs/BACKUP_FORMAT.md`, ADR 24). No modifica la base ni incluye el token. Nunca sobrescribe una copia anterior: en Android pide otro nombre si el archivo elegido ya existe; en escritorio la sustituye de forma atómica solo tras verificar la nueva. Muestra el SHA-256 completo con un botón para copiarlo.
 - Misión 016 (Etapa 2, beta): modo sin conexión. Cuadernos, notas y dibujos se abren y guardan en la tablet sin la compu (Laboratorio → «Modo sin conexión»).
 - Misión 015 (Etapa 2): copia local de cuadernos, notas y dibujos con importación verificada desde el servidor (Laboratorio → «Importar desde el servidor»).
 - Misión 014 (Etapa 2, prototipo): base de datos local con Drift y pantalla «Laboratorio» que mide su rendimiento en el dispositivo. No cambia dónde se guardan las notas.

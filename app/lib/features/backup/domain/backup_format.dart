@@ -46,13 +46,22 @@ String suggestedBackupName(DateTime now) {
       '${two(now.hour)}${two(now.minute)}.$backupFileExtension';
 }
 
+/// Nombre alternativo para el intento [attempt] (2, 3…):
+/// `euler-notes-AAAAMMDD-HHMM-2.eulernotes`.
+String alternativeBackupName(String suggested, int attempt) {
+  final dot = suggested.lastIndexOf('.');
+  if (dot <= 0) return '$suggested-$attempt';
+  return '${suggested.substring(0, dot)}-$attempt${suggested.substring(dot)}';
+}
+
 /// Error de la copia de seguridad. [message] es apto para mostrarse al
 /// usuario y nunca incluye contenido de las notas.
 class BackupException implements Exception {
   const BackupException(this.code, this.message);
 
   /// `cancelled`, `write_failed`, `verify_failed`, `unsupported_schema`,
-  /// `unknown_table`, `unsupported_platform`, `copy_failed`.
+  /// `unknown_table`, `unsupported_platform`, `copy_failed`,
+  /// `target_exists` (el destino ya tenía contenido y no se sobrescribió).
   final String code;
   final String message;
 

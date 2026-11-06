@@ -56,6 +56,18 @@ class FileBackupWriter implements BackupWriter {
 
 typedef BackupWriterFactory = Future<BackupWriter> Function(File file);
 
+/// Pone [partial] en el lugar de [destination]. Por defecto `rename`, que en
+/// un mismo sistema de archivos es atómico: si ya existía una copia con ese
+/// nombre, se sustituye entera en un solo paso, o no se toca.
+typedef BackupReplacer = Future<void> Function(
+  File partial,
+  String destination,
+);
+
+Future<void> _renameInto(File partial, String destination) async {
+  await partial.rename(destination);
+}
+
 /// Quita usuario, contraseña, consulta y fragmento de la URL de origen
 /// (columna `source`). Normalmente no llevan nada de eso; así ninguna
 /// credencial puede acabar en una copia.
@@ -79,8 +91,9 @@ String sanitizeSourceUrl(String source) {
 /// - Lee todas las tablas dentro de una transacción de lectura: la copia es
 ///   una foto coherente aunque la app guarde algo a la vez.
 /// - Escribe en `<destino>.partial` y solo al final, tras verificarlo, lo
-///   renombra al destino. Si algo falla o se cancela, borra el `.partial` y
-///   el destino no se toca.
+///   renombra al destino (reemplazo atómico). Si algo falla o se cancela,
+///   borra el `.partial` y el destino —por ejemplo, una copia anterior con
+///   el mismo nombre— queda intacto.
 /// - No registra nada en los logs.
 class BackupExporter {
   BackupExporter(
@@ -88,13 +101,16 @@ class BackupExporter {
     required this.appVersion,
     DateTime Function()? clock,
     BackupWriterFactory? openWriter,
+    BackupReplacer? replace,
   }) : _clock = clock ?? DateTime.now,
-       _openWriter = openWriter ?? FileBackupWriter.open;
+       _openWriter = openWriter ?? FileBackupWriter.open,
+       _replace = replace ?? _renameInto;
 
   final LocalDatabase _db;
   final String appVersion;
   final DateTime Function() _clock;
   final BackupWriterFactory _openWriter;
+  final BackupReplacer _replace;
 
   Future<BackupSummary> exportTo(
     File destination, {
@@ -195,7 +211,7 @@ class BackupExporter {
       }
       token.throwIfCancelled();
 
-      await partial.rename(destination.path);
+      await _replace(partial, destination.path);
       report(BackupPhase.done, 1);
       return BackupSummary(
         counts: snapshot.counts,

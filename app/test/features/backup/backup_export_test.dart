@@ -78,6 +78,32 @@ Map<String, Object?> row(String table, Map<String, Object?> data) => {
   'data': data,
 };
 
+/// Escritor que estropea un byte de lo que escribe (simula un disco que
+/// guarda algo distinto de lo generado): la verificación debe detectarlo.
+class CorruptingWriter implements BackupWriter {
+  CorruptingWriter(this._inner);
+
+  final BackupWriter _inner;
+  bool _done = false;
+
+  @override
+  Future<void> write(List<int> bytes) async {
+    if (!_done && bytes.length > 20) {
+      _done = true;
+      final copy = [...bytes];
+      copy[10] = copy[10] ^ 0x01;
+      return _inner.write(copy);
+    }
+    await _inner.write(bytes);
+  }
+
+  @override
+  Future<void> close() => _inner.close();
+
+  @override
+  Future<void> abort() => _inner.abort();
+}
+
 /// Escritor que falla después de [okWrites] escrituras.
 class FailingWriter implements BackupWriter {
   FailingWriter(this._inner, this.okWrites);
@@ -110,11 +136,15 @@ void main() {
   late LocalDatabase db;
   late File target;
 
-  BackupExporter exporter({BackupWriterFactory? openWriter}) => BackupExporter(
+  BackupExporter exporter({
+    BackupWriterFactory? openWriter,
+    BackupReplacer? replace,
+  }) => BackupExporter(
     db,
     appVersion: '0.4.0+4',
     clock: () => DateTime.utc(2026, 11, 6, 10),
     openWriter: openWriter,
+    replace: replace,
   );
 
   setUp(() async {
@@ -385,6 +415,83 @@ void main() {
           throwsA(isA<BackupException>()),
         );
         expect(target.readAsBytesSync(), previous);
+        expect(files(), ['copia.eulernotes']);
+      },
+    );
+
+    test(
+      'archivo local: un error al verificar conserva la copia anterior',
+      () async {
+        await seed();
+        await exporter().exportTo(target);
+        final previous = target.readAsBytesSync();
+        await LocalNotebooksRepository(db).create('Nuevo');
+
+        await expectLater(
+          exporter(
+            openWriter: (file) async =>
+                CorruptingWriter(await FileBackupWriter.open(file)),
+          ).exportTo(target),
+          throwsA(
+            isA<BackupException>().having(
+              (e) => e.code,
+              'code',
+              'verify_failed',
+            ),
+          ),
+        );
+        expect(target.readAsBytesSync(), previous);
+        expect(files(), ['copia.eulernotes']);
+        await verifyBackupFile(target); // la anterior sigue siendo válida
+      },
+    );
+
+    test(
+      'archivo local: un error al reemplazar conserva la copia anterior',
+      () async {
+        await seed();
+        await exporter().exportTo(target);
+        final previous = target.readAsBytesSync();
+        await LocalNotebooksRepository(db).create('Nuevo');
+
+        await expectLater(
+          exporter(
+            replace: (partial, destination) async =>
+                throw FileSystemException('rename falló', destination),
+          ).exportTo(target),
+          throwsA(
+            isA<BackupException>().having(
+              (e) => e.code,
+              'code',
+              'write_failed',
+            ),
+          ),
+        );
+        expect(target.readAsBytesSync(), previous);
+        expect(files(), ['copia.eulernotes']); // sin .partial
+      },
+    );
+
+    test(
+      'archivo local: el reemplazo solo ocurre con la copia ya verificada',
+      () async {
+        await seed();
+        await exporter().exportTo(target);
+        final previous = target.readAsBytesSync();
+        await LocalNotebooksRepository(db).create('Nuevo');
+
+        String? replacedWith;
+        final summary = await exporter(
+          replace: (partial, destination) async {
+            // En este punto el destino todavía es la copia anterior, y el
+            // .partial ya pasó la verificación completa.
+            expect(File(destination).readAsBytesSync(), previous);
+            replacedWith = (await verifyBackupFile(partial)).sha256;
+            await partial.rename(destination);
+          },
+        ).exportTo(target);
+        expect(replacedWith, summary.sha256);
+        expect((await verifyBackupFile(target)).counts['notebooks'], 2);
         expect(files(), ['copia.eulernotes']);
       },
     );

@@ -101,6 +101,8 @@ Las ADR 1–9 resumen `ARCHITECTURE.md §9`; desde ahora este archivo es la fuen
 - Se copian las filas **tal cual** (columnas de SQL, ids UUID, borrados lógicos incluidos), con la versión del esquema (`PRAGMA user_version`) y la del formato por separado.
 - Integridad: lectura en una transacción, escritura en `.partial` con `fsync`, relectura y verificación completa antes de renombrar; en Android, copia al documento elegido con el selector del sistema (Storage Access Framework, sin permisos) y relectura con SHA-256; si algo falla, el documento se borra.
 - Canal propio en `MainActivity` (`dev.eulernotes/backup`) en lugar de un paquete: `file_selector` no ofrece «Guardar como» en Android, y así se controla el volcado y la relectura. En Linux se usa `getSaveLocation` de `file_selector`. Web no se admite todavía.
+- Copias anteriores protegidas: en archivos locales, `.partial` verificado y `rename` atómico (la anterior queda intacta si algo falla). En Android, el Storage Access Framework no permite reemplazar de forma atómica con permiso sobre un solo documento, así que **nunca se sobrescribe un documento con contenido**: se pide otro nombre. Solo se borra, si falla, el documento vacío recién creado para esa copia.
+- La app muestra el SHA-256 completo y permite copiarlo.
 - Sin compresión ni cifrado en la versión 1: la copia **no está cifrada** y la guarda el usuario donde quiera. Dependencias nuevas solo declaradas (ya eran indirectas): `crypto` y `path_provider`.
 - Pendiente de aprobación del dueño tras probarla en la tablet.
 

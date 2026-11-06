@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
@@ -25,6 +26,9 @@ import java.util.concurrent.Executors
  * Framework), sin pedir permisos de almacenamiento.
  *
  * - `createDocument(name, mimeType)` → URI elegida o `null` si se cancela.
+ * - `documentHasContent(uri)` → `true` si el documento elegido ya tiene
+ *   contenido (un archivo existente: no se sobrescribe), `false` si está
+ *   vacío y `null` si no se puede saber.
  * - `copyToDocument(path, uri)` → copia el archivo, lo vuelca al disco y lo
  *   relee para devolver `{bytes, sha256}`.
  * - `deleteDocument(uri)` → borra un documento a medias.
@@ -45,6 +49,7 @@ class MainActivity : FlutterActivity() {
     private fun onBackupCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "createDocument" -> createDocument(call, result)
+            "documentHasContent" -> documentHasContent(call, result)
             "copyToDocument" -> copyToDocument(call, result)
             "deleteDocument" -> deleteDocument(call, result)
             else -> result.notImplemented()
@@ -82,6 +87,39 @@ class MainActivity : FlutterActivity() {
         result.success(if (resultCode == Activity.RESULT_OK && uri != null) uri.toString() else null)
     }
 
+    private fun documentHasContent(call: MethodCall, result: MethodChannel.Result) {
+        val uri = call.argument<String>("uri")?.let(Uri::parse)
+        if (uri == null) {
+            result.success(null)
+            return
+        }
+        io.execute {
+            // Tamaño que declara el proveedor (puede faltar o ser aproximado).
+            var size: Long? = null
+            try {
+                contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+                    ?.use { cursor ->
+                        val column = cursor.getColumnIndex(OpenableColumns.SIZE)
+                        if (cursor.moveToFirst() && column >= 0 && !cursor.isNull(column)) {
+                            size = cursor.getLong(column)
+                        }
+                    }
+            } catch (e: Exception) {
+            }
+            // Comprobación directa: ¿se puede leer al menos un byte?
+            val answer: Boolean? = if ((size ?: 0L) > 0L) {
+                true
+            } else {
+                try {
+                    contentResolver.openInputStream(uri)?.use { it.read() >= 0 }
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            main.post { result.success(answer) }
+        }
+    }
+
     private fun copyToDocument(call: MethodCall, result: MethodChannel.Result) {
         val path = call.argument<String>("path")
         val uri = call.argument<String>("uri")?.let(Uri::parse)
@@ -91,9 +129,9 @@ class MainActivity : FlutterActivity() {
         }
         io.execute {
             try {
-                // "wt": escribir desde cero (truncar). Algunos proveedores no
-                // aceptan "wt": entonces "w" (el documento recién creado está
-                // vacío; si no, la relectura de abajo detecta la diferencia).
+                // Solo llegan documentos vacíos (documentHasContent). "wt":
+                // escribir desde cero; si el proveedor no lo acepta, "w". La
+                // relectura de abajo comprueba el resultado.
                 val output = openForWrite(uri)
                 output.use { stream ->
                     FileInputStream(File(path)).use { input -> input.copyTo(stream, BUFFER) }
